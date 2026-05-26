@@ -1,4 +1,4 @@
-package com.splittogether.splittogether.config
+package com.splittogether.backend.config
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

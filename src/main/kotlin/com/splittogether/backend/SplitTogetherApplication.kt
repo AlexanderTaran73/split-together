@@ -1,4 +1,4 @@
-package com.splittogether.splittogether
+package com.splittogether.backend
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
