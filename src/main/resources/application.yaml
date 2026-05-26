@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: split-together
+  datasource:
+    url: jdbc:postgresql://localhost:5432/splittogether
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
