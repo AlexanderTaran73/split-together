@@ -22,3 +22,30 @@ class InvalidVerificationCodeException(message: String) :
 
 class UserNotFoundException(message: String) :
     BaseException(message, HttpStatus.NOT_FOUND)
+
+class GroupNotFoundException(message: String) :
+    BaseException(message, HttpStatus.NOT_FOUND)
+
+class InvitationNotFoundException(message: String) :
+    BaseException(message, HttpStatus.NOT_FOUND)
+
+class CurrencyNotFoundException(message: String) :
+    BaseException(message, HttpStatus.NOT_FOUND)
+
+class NotGroupMemberException(message: String) :
+    BaseException(message, HttpStatus.FORBIDDEN)
+
+class InsufficientPermissionsException(message: String) :
+    BaseException(message, HttpStatus.FORBIDDEN)
+
+class AlreadyGroupMemberException(message: String) :
+    BaseException(message, HttpStatus.CONFLICT)
+
+class GroupArchivedException(message: String) :
+    BaseException(message, HttpStatus.CONFLICT)
+
+class InvalidInvitationException(message: String) :
+    BaseException(message, HttpStatus.BAD_REQUEST)
+
+class CannotRemoveOwnerException(message: String) :
+    BaseException(message, HttpStatus.CONFLICT)

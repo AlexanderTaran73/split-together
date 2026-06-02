@@ -11,4 +11,9 @@ class PlatformRole(
     @Id val id: Int = 0,
     @Column(nullable = false, unique = true) val code: String,
     @Column(nullable = false) val name: String
-)
+) {
+    companion object {
+        const val USER = "USER"
+        const val ADMIN = "ADMIN"
+    }
+}

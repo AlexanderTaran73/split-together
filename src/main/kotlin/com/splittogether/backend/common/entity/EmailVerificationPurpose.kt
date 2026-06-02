@@ -11,4 +11,9 @@ class EmailVerificationPurpose(
     @Id val id: Int = 0,
     @Column(nullable = false, unique = true) val code: String,
     @Column(nullable = false) val name: String
-)
+) {
+    companion object {
+        const val REGISTRATION = "REGISTRATION"
+        const val EMAIL_CHANGE = "EMAIL_CHANGE"
+    }
+}

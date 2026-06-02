@@ -9,7 +9,6 @@ import com.splittogether.backend.auth.repository.RefreshTokenRepository
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.common.repository.EmailVerificationPurposeRepository
 import com.splittogether.backend.user.repository.UserRepository
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.security.MessageDigest
@@ -29,13 +28,6 @@ class AuthServiceTest : AbstractIntegrationTest() {
     @Autowired private lateinit var refreshTokenRepository: RefreshTokenRepository
     @Autowired private lateinit var emailVerificationRepository: EmailVerificationRepository
     @Autowired private lateinit var emailVerificationPurposeRepository: EmailVerificationPurposeRepository
-
-    @BeforeEach
-    fun cleanUp() {
-        emailVerificationRepository.deleteAll()
-        refreshTokenRepository.deleteAll()
-        userRepository.deleteAll()
-    }
 
     // ── register ─────────────────────────────────────────────────────────────
 
