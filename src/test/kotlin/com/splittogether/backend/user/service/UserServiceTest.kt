@@ -5,7 +5,6 @@ import com.splittogether.backend.common.exception.UserNotFoundException
 import com.splittogether.backend.user.dto.UpdateProfileRequest
 import com.splittogether.backend.user.entity.User
 import com.splittogether.backend.user.repository.UserRepository
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import kotlin.test.assertEquals
@@ -16,11 +15,6 @@ class UserServiceTest : AbstractIntegrationTest() {
 
     @Autowired private lateinit var userService: UserService
     @Autowired private lateinit var userRepository: UserRepository
-
-    @BeforeEach
-    fun cleanUp() {
-        userRepository.deleteAll()
-    }
 
     private fun createUser(
         email: String = "user@test.com",

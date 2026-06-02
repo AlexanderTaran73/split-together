@@ -6,7 +6,6 @@ import com.splittogether.backend.auth.repository.EmailVerificationRepository
 import com.splittogether.backend.auth.repository.RefreshTokenRepository
 import com.splittogether.backend.auth.service.AuthService
 import com.splittogether.backend.user.repository.UserRepository
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
@@ -22,13 +21,6 @@ class AuthControllerTest : AbstractIntegrationTest() {
     @Autowired private lateinit var userRepository: UserRepository
     @Autowired private lateinit var refreshTokenRepository: RefreshTokenRepository
     @Autowired private lateinit var emailVerificationRepository: EmailVerificationRepository
-
-    @BeforeEach
-    fun cleanUp() {
-        emailVerificationRepository.deleteAll()
-        refreshTokenRepository.deleteAll()
-        userRepository.deleteAll()
-    }
 
     // ── helpers ───────────────────────────────────────────────────────────────
 

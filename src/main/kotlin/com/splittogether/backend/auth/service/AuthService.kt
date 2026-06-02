@@ -5,6 +5,8 @@ import com.splittogether.backend.auth.entity.EmailVerification
 import com.splittogether.backend.auth.entity.RefreshToken
 import com.splittogether.backend.auth.repository.EmailVerificationRepository
 import com.splittogether.backend.auth.repository.RefreshTokenRepository
+import com.splittogether.backend.common.entity.EmailVerificationPurpose
+import com.splittogether.backend.common.entity.PlatformRole
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.common.repository.EmailVerificationPurposeRepository
 import com.splittogether.backend.common.repository.PlatformRoleRepository
@@ -36,7 +38,7 @@ class AuthService(
         if (userRepository.existsByEmail(request.email)) {
             throw EmailAlreadyExistsException("Email already in use")
         }
-        val userRole = platformRoleRepository.findByCode("USER")
+        val userRole = platformRoleRepository.findByCode(PlatformRole.USER)
             ?: error("Reference data missing: USER role")
 
         val user = User(
@@ -47,7 +49,7 @@ class AuthService(
         user.platformRoles.add(userRole)
         userRepository.save(user)
 
-        sendVerificationCode(user, "REGISTRATION")
+        sendVerificationCode(user, EmailVerificationPurpose.REGISTRATION)
     }
 
     @Transactional
@@ -91,7 +93,7 @@ class AuthService(
         val user = userRepository.findByEmail(request.email)
             ?: throw UserNotFoundException("User not found")
 
-        val verification = emailVerificationRepository.findLatestUnused(user, "REGISTRATION")
+        val verification = emailVerificationRepository.findLatestUnused(user, EmailVerificationPurpose.REGISTRATION)
             ?: throw InvalidVerificationCodeException("No pending verification found")
 
         if (verification.expiresAt.isBefore(Instant.now())) {
@@ -112,7 +114,7 @@ class AuthService(
         if (user.emailVerified) {
             throw EmailAlreadyVerifiedException("Email is already verified")
         }
-        sendVerificationCode(user, "REGISTRATION")
+        sendVerificationCode(user, EmailVerificationPurpose.REGISTRATION)
     }
 
     private fun issueTokens(user: User): AuthResponse {
