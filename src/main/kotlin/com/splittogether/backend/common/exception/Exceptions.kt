@@ -55,3 +55,9 @@ class ExpenseNotFoundException(message: String) :
 
 class InvalidExpenseException(message: String) :
     BaseException(message, HttpStatus.BAD_REQUEST)
+
+class SettlementNotFoundException(message: String) :
+    BaseException(message, HttpStatus.NOT_FOUND)
+
+class InvalidSettlementException(message: String) :
+    BaseException(message, HttpStatus.BAD_REQUEST)
