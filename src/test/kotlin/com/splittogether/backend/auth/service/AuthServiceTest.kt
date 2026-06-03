@@ -225,6 +225,81 @@ class AuthServiceTest : AbstractIntegrationTest() {
         }
     }
 
+    // ── requestEmailChange ────────────────────────────────────────────────────
+
+    @Test
+    fun `requestEmailChange saves EMAIL_CHANGE verification for new email`() {
+        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        verifyUserEmail("user@test.com")
+        val user = userRepository.findByEmail("user@test.com")!!
+
+        authService.requestEmailChange(user.id, "new@test.com")
+
+        val verification = emailVerificationRepository.findLatestUnused(user, "EMAIL_CHANGE")
+        assertNotNull(verification)
+        kotlin.test.assertEquals("new@test.com", verification!!.newEmail)
+    }
+
+    @Test
+    fun `requestEmailChange throws EmailAlreadyExistsException when new email is taken`() {
+        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        authService.register(RegisterRequest("other@test.com", "Password1!", "Other"))
+        verifyUserEmail("user@test.com")
+        val user = userRepository.findByEmail("user@test.com")!!
+
+        assertFailsWith<EmailAlreadyExistsException> {
+            authService.requestEmailChange(user.id, "other@test.com")
+        }
+    }
+
+    // ── confirmEmailChange ────────────────────────────────────────────────────
+
+    @Test
+    fun `confirmEmailChange updates user email to new email`() {
+        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        verifyUserEmail("user@test.com")
+        val user = userRepository.findByEmail("user@test.com")!!
+        authService.requestEmailChange(user.id, "new@test.com")
+        val code = emailVerificationRepository.findLatestUnused(user, "EMAIL_CHANGE")!!.code
+
+        authService.confirmEmailChange(user.id, code)
+
+        kotlin.test.assertEquals("new@test.com", userRepository.findById(user.id).get().email)
+    }
+
+    @Test
+    fun `confirmEmailChange throws InvalidVerificationCodeException for wrong code`() {
+        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        verifyUserEmail("user@test.com")
+        val user = userRepository.findByEmail("user@test.com")!!
+        authService.requestEmailChange(user.id, "new@test.com")
+
+        assertFailsWith<InvalidVerificationCodeException> {
+            authService.confirmEmailChange(user.id, "000000")
+        }
+    }
+
+    @Test
+    fun `confirmEmailChange throws InvalidVerificationCodeException for expired code`() {
+        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        verifyUserEmail("user@test.com")
+        val user = userRepository.findByEmail("user@test.com")!!
+        val purpose = emailVerificationPurposeRepository.findByCode("EMAIL_CHANGE")!!
+        emailVerificationRepository.save(
+            EmailVerification(
+                user = user,
+                code = "111111",
+                purpose = purpose,
+                newEmail = "new@test.com",
+                expiresAt = Instant.now().minus(1, ChronoUnit.HOURS)
+            )
+        )
+
+        assertFailsWith<InvalidVerificationCodeException> {
+            authService.confirmEmailChange(user.id, "111111")
+        }
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private fun verifyUserEmail(email: String) {

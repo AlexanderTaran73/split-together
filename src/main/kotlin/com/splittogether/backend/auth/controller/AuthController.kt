@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.*
 
+
 @RestController
 @RequestMapping("/api/v1/auth")
 class AuthController(private val authService: AuthService) {
@@ -42,6 +43,24 @@ class AuthController(private val authService: AuthService) {
     @PostMapping("/resend-verification")
     fun resendVerification(@Valid @RequestBody request: ResendVerificationRequest): ResponseEntity<Void> {
         authService.resendVerification(request)
+        return ResponseEntity.ok().build()
+    }
+
+    @PostMapping("/change-email")
+    fun changeEmail(
+        @AuthenticationPrincipal user: AppUserDetails,
+        @Valid @RequestBody request: ChangeEmailRequest
+    ): ResponseEntity<Void> {
+        authService.requestEmailChange(user.userId, request.newEmail)
+        return ResponseEntity.ok().build()
+    }
+
+    @PostMapping("/confirm-email-change")
+    fun confirmEmailChange(
+        @AuthenticationPrincipal user: AppUserDetails,
+        @Valid @RequestBody request: ConfirmEmailChangeRequest
+    ): ResponseEntity<Void> {
+        authService.confirmEmailChange(user.userId, request.code)
         return ResponseEntity.ok().build()
     }
 }

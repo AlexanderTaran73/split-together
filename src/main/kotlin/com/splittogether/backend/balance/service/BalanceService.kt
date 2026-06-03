@@ -2,6 +2,7 @@ package com.splittogether.backend.balance.service
 
 import com.splittogether.backend.balance.dto.BalanceEntryResponse
 import com.splittogether.backend.balance.dto.SimplifiedDebtResponse
+import com.splittogether.backend.user.dto.UserBalanceResponse
 import com.splittogether.backend.balance.entity.Balance
 import com.splittogether.backend.balance.repository.BalanceRepository
 import com.splittogether.backend.common.exception.GroupNotFoundException
@@ -13,6 +14,7 @@ import com.splittogether.backend.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
+import java.math.RoundingMode
 
 @Service
 class BalanceService(
@@ -136,6 +138,17 @@ class BalanceService(
                 amount = amount
             )
         }
+    }
+
+    @Transactional(readOnly = true)
+    fun getUserBalance(userId: Long): UserBalanceResponse {
+        val totalOwed = (balanceRepository.sumAmountByCreditorId(userId) ?: BigDecimal.ZERO).setScale(2, RoundingMode.UNNECESSARY)
+        val totalOwing = (balanceRepository.sumAmountByDebtorId(userId) ?: BigDecimal.ZERO).setScale(2, RoundingMode.UNNECESSARY)
+        return UserBalanceResponse(
+            totalOwed = totalOwed,
+            totalOwing = totalOwing,
+            netBalance = totalOwed.subtract(totalOwing)
+        )
     }
 
     private fun computeSimplified(balances: List<Balance>): List<Triple<Long, Long, BigDecimal>> {

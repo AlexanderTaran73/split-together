@@ -107,6 +107,32 @@ class AuthService(
     }
 
     @Transactional
+    fun requestEmailChange(userId: Long, newEmail: String) {
+        val user = userRepository.findById(userId)
+            .orElseThrow { UserNotFoundException("User not found") }
+        if (userRepository.existsByEmail(newEmail))
+            throw EmailAlreadyExistsException("Email already in use")
+        sendVerificationCode(user, EmailVerificationPurpose.EMAIL_CHANGE, newEmail)
+    }
+
+    @Transactional
+    fun confirmEmailChange(userId: Long, code: String) {
+        val user = userRepository.findById(userId)
+            .orElseThrow { UserNotFoundException("User not found") }
+
+        val verification = emailVerificationRepository.findLatestUnused(user, EmailVerificationPurpose.EMAIL_CHANGE)
+            ?: throw InvalidVerificationCodeException("No pending email change found")
+
+        if (verification.expiresAt.isBefore(Instant.now()))
+            throw InvalidVerificationCodeException("Verification code expired")
+        if (verification.code != code)
+            throw InvalidVerificationCodeException("Invalid verification code")
+
+        verification.usedAt = Instant.now()
+        user.email = verification.newEmail!!
+    }
+
+    @Transactional
     fun resendVerification(request: ResendVerificationRequest) {
         val user = userRepository.findByEmail(request.email)
             ?: throw UserNotFoundException("User not found")
@@ -130,7 +156,7 @@ class AuthService(
         return AuthResponse(accessToken = accessToken, refreshToken = rawToken)
     }
 
-    private fun sendVerificationCode(user: User, purposeCode: String) {
+    private fun sendVerificationCode(user: User, purposeCode: String, newEmail: String? = null) {
         val purpose = emailVerificationPurposeRepository.findByCode(purposeCode)
             ?: error("Reference data missing: purpose $purposeCode")
 
@@ -140,10 +166,11 @@ class AuthService(
                 user = user,
                 code = code,
                 purpose = purpose,
+                newEmail = newEmail,
                 expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES)
             )
         )
-        emailService.sendVerificationCode(user.email, code)
+        emailService.sendVerificationCode(newEmail ?: user.email, code)
     }
 
     private fun hashToken(token: String): String =
