@@ -2,6 +2,9 @@ package com.splittogether.backend
 
 import com.splittogether.backend.auth.repository.EmailVerificationRepository
 import com.splittogether.backend.auth.repository.RefreshTokenRepository
+import com.splittogether.backend.balance.repository.BalanceRepository
+import com.splittogether.backend.expense.repository.ExpenseParticipantRepository
+import com.splittogether.backend.expense.repository.ExpenseRepository
 import com.splittogether.backend.group.repository.GroupInvitationRepository
 import com.splittogether.backend.group.repository.GroupMemberRepository
 import com.splittogether.backend.group.repository.GroupRepository
@@ -22,6 +25,9 @@ abstract class AbstractIntegrationTest {
 
     @Autowired private lateinit var invitationUseRepository: InvitationUseRepository
     @Autowired private lateinit var groupInvitationRepository: GroupInvitationRepository
+    @Autowired private lateinit var expenseParticipantRepository: ExpenseParticipantRepository
+    @Autowired private lateinit var balanceRepository: BalanceRepository
+    @Autowired private lateinit var expenseRepository: ExpenseRepository
     @Autowired private lateinit var groupMemberRepository: GroupMemberRepository
     @Autowired private lateinit var groupRepository: GroupRepository
     @Autowired private lateinit var emailVerificationRepository: EmailVerificationRepository
@@ -32,6 +38,9 @@ abstract class AbstractIntegrationTest {
     fun cleanDatabase() {
         invitationUseRepository.deleteAll()
         groupInvitationRepository.deleteAll()
+        expenseParticipantRepository.deleteAll()
+        balanceRepository.deleteAll()
+        expenseRepository.deleteAll()
         groupMemberRepository.deleteAll()
         groupRepository.deleteAll()
         emailVerificationRepository.deleteAll()
