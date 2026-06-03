@@ -13,6 +13,7 @@ import com.splittogether.backend.common.repository.PlatformRoleRepository
 import com.splittogether.backend.email.service.EmailService
 import com.splittogether.backend.user.entity.User
 import com.splittogether.backend.user.repository.UserRepository
+import com.splittogether.backend.auth.config.AuthProperties
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -23,6 +24,7 @@ import java.util.*
 
 @Service
 class AuthService(
+    private val authProperties: AuthProperties,
     private val userRepository: UserRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val emailVerificationRepository: EmailVerificationRepository,
@@ -160,7 +162,7 @@ class AuthService(
         val purpose = emailVerificationPurposeRepository.findByCode(purposeCode)
             ?: error("Reference data missing: purpose $purposeCode")
 
-        val code = (100000..999999).random().toString()
+        val code = authProperties.verification.fixedCode.ifEmpty { (100000..999999).random().toString() }
         emailVerificationRepository.save(
             EmailVerification(
                 user = user,

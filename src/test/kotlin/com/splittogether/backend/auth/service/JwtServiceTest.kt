@@ -6,8 +6,8 @@ import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.io.Decoders
 import io.jsonwebtoken.security.Keys
 import org.junit.jupiter.api.Test
+import com.splittogether.backend.auth.config.AuthProperties
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
 import java.util.Date
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -16,11 +16,10 @@ import kotlin.test.assertTrue
 
 class JwtServiceTest : AbstractIntegrationTest() {
 
-    @Autowired
-    private lateinit var jwtService: JwtService
+    @Autowired private lateinit var jwtService: JwtService
+    @Autowired private lateinit var authProperties: AuthProperties
 
-    @Value("\${app.jwt.secret}")
-    private lateinit var secret: String
+    private val secret get() = authProperties.jwt.secret
 
     private val testUser = User(id = 42L, email = "jwt@test.com", passwordHash = "hash", displayName = "JWT Test")
 
