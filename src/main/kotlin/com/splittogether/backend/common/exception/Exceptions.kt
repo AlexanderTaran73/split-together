@@ -49,3 +49,9 @@ class InvalidInvitationException(message: String) :
 
 class CannotRemoveOwnerException(message: String) :
     BaseException(message, HttpStatus.CONFLICT)
+
+class ExpenseNotFoundException(message: String) :
+    BaseException(message, HttpStatus.NOT_FOUND)
+
+class InvalidExpenseException(message: String) :
+    BaseException(message, HttpStatus.BAD_REQUEST)
