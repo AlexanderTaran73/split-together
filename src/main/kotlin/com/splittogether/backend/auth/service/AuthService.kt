@@ -13,6 +13,7 @@ import com.splittogether.backend.common.repository.PlatformRoleRepository
 import com.splittogether.backend.email.service.EmailService
 import com.splittogether.backend.user.entity.User
 import com.splittogether.backend.user.repository.UserRepository
+import com.splittogether.backend.auth.config.AuthProperties
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -23,6 +24,7 @@ import java.util.*
 
 @Service
 class AuthService(
+    private val authProperties: AuthProperties,
     private val userRepository: UserRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val emailVerificationRepository: EmailVerificationRepository,
@@ -107,6 +109,32 @@ class AuthService(
     }
 
     @Transactional
+    fun requestEmailChange(userId: Long, newEmail: String) {
+        val user = userRepository.findById(userId)
+            .orElseThrow { UserNotFoundException("User not found") }
+        if (userRepository.existsByEmail(newEmail))
+            throw EmailAlreadyExistsException("Email already in use")
+        sendVerificationCode(user, EmailVerificationPurpose.EMAIL_CHANGE, newEmail)
+    }
+
+    @Transactional
+    fun confirmEmailChange(userId: Long, code: String) {
+        val user = userRepository.findById(userId)
+            .orElseThrow { UserNotFoundException("User not found") }
+
+        val verification = emailVerificationRepository.findLatestUnused(user, EmailVerificationPurpose.EMAIL_CHANGE)
+            ?: throw InvalidVerificationCodeException("No pending email change found")
+
+        if (verification.expiresAt.isBefore(Instant.now()))
+            throw InvalidVerificationCodeException("Verification code expired")
+        if (verification.code != code)
+            throw InvalidVerificationCodeException("Invalid verification code")
+
+        verification.usedAt = Instant.now()
+        user.email = verification.newEmail!!
+    }
+
+    @Transactional
     fun resendVerification(request: ResendVerificationRequest) {
         val user = userRepository.findByEmail(request.email)
             ?: throw UserNotFoundException("User not found")
@@ -130,20 +158,21 @@ class AuthService(
         return AuthResponse(accessToken = accessToken, refreshToken = rawToken)
     }
 
-    private fun sendVerificationCode(user: User, purposeCode: String) {
+    private fun sendVerificationCode(user: User, purposeCode: String, newEmail: String? = null) {
         val purpose = emailVerificationPurposeRepository.findByCode(purposeCode)
             ?: error("Reference data missing: purpose $purposeCode")
 
-        val code = (100000..999999).random().toString()
+        val code = authProperties.verification.fixedCode.ifEmpty { (100000..999999).random().toString() }
         emailVerificationRepository.save(
             EmailVerification(
                 user = user,
                 code = code,
                 purpose = purpose,
+                newEmail = newEmail,
                 expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES)
             )
         )
-        emailService.sendVerificationCode(user.email, code)
+        emailService.sendVerificationCode(newEmail ?: user.email, code)
     }
 
     private fun hashToken(token: String): String =
