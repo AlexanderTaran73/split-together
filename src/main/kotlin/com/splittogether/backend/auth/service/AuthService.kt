@@ -172,7 +172,12 @@ class AuthService(
                 expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES)
             )
         )
-        emailService.sendVerificationCode(newEmail ?: user.email, code)
+        emailService.send {
+            to(newEmail ?: user.email)
+            subject("Verification Code — SplitTogether")
+            template("verification-code")
+            variable("code", code)
+        }
     }
 
     private fun hashToken(token: String): String =

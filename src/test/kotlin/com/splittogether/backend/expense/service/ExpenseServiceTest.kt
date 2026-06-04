@@ -1,8 +1,6 @@
 package com.splittogether.backend.expense.service
 
 import com.splittogether.backend.AbstractIntegrationTest
-import com.splittogether.backend.auth.dto.RegisterRequest
-import com.splittogether.backend.auth.service.AuthService
 import com.splittogether.backend.balance.repository.BalanceRepository
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.expense.dto.CreateExpenseRequest
@@ -13,11 +11,8 @@ import com.splittogether.backend.expense.repository.ExpenseRepository
 import com.splittogether.backend.group.dto.CreateGroupRequest
 import com.splittogether.backend.group.dto.CreateInvitationRequest
 import com.splittogether.backend.group.dto.JoinGroupRequest
-import com.splittogether.backend.group.repository.GroupInvitationRepository
 import com.splittogether.backend.group.repository.GroupRepository
 import com.splittogether.backend.group.service.GroupService
-import com.splittogether.backend.user.entity.User
-import com.splittogether.backend.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.math.BigDecimal
@@ -28,20 +23,12 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Autowired private lateinit var expenseService: ExpenseService
     @Autowired private lateinit var groupService: GroupService
-    @Autowired private lateinit var authService: AuthService
-    @Autowired private lateinit var userRepository: UserRepository
     @Autowired private lateinit var groupRepository: GroupRepository
-    @Autowired private lateinit var groupInvitationRepository: GroupInvitationRepository
     @Autowired private lateinit var expenseRepository: ExpenseRepository
     @Autowired private lateinit var expenseParticipantRepository: ExpenseParticipantRepository
     @Autowired private lateinit var balanceRepository: BalanceRepository
 
     // ── helpers ───────────────────────────────────────────────────────────────
-
-    private fun createUser(email: String): User {
-        authService.register(RegisterRequest(email, "Password1!", "User"))
-        return userRepository.findByEmail(email)!!
-    }
 
     private fun createGroup(ownerId: Long): com.splittogether.backend.group.entity.Group {
         groupService.createGroup(ownerId, CreateGroupRequest("Test Group", null, "RUB"))
@@ -68,8 +55,8 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `createExpense EQUAL splits amount evenly among participants`() {
-        val owner = createUser("owner@test.com")
-        val member = createUser("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         joinGroup(member.id, owner.id, group.id)
 
@@ -84,9 +71,9 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `createExpense EQUAL remainder goes to payer`() {
-        val owner = createUser("owner@test.com")
-        val m1 = createUser("m1@test.com")
-        val m2 = createUser("m2@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val m1 = generator.user(email = "m1@test.com")
+        val m2 = generator.user(email = "m2@test.com")
         val group = createGroup(owner.id)
         joinGroup(m1.id, owner.id, group.id)
         joinGroup(m2.id, owner.id, group.id)
@@ -104,8 +91,8 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `createExpense EQUAL updates balances correctly`() {
-        val owner = createUser("owner@test.com")
-        val member = createUser("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         joinGroup(member.id, owner.id, group.id)
 
@@ -123,8 +110,8 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `createExpense SHARES distributes by weight`() {
-        val owner = createUser("owner@test.com")
-        val member = createUser("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         joinGroup(member.id, owner.id, group.id)
 
@@ -152,7 +139,7 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `createExpense SHARES throws when weight is missing`() {
-        val owner = createUser("owner@test.com")
+        val owner = generator.user(email = "owner@test.com")
         val group = createGroup(owner.id)
 
         assertFailsWith<InvalidExpenseException> {
@@ -172,8 +159,8 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `createExpense EXACT uses provided amounts`() {
-        val owner = createUser("owner@test.com")
-        val member = createUser("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         joinGroup(member.id, owner.id, group.id)
 
@@ -199,8 +186,8 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `createExpense EXACT throws when sum does not match amount`() {
-        val owner = createUser("owner@test.com")
-        val member = createUser("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         joinGroup(member.id, owner.id, group.id)
 
@@ -224,8 +211,8 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `createExpense throws NotGroupMemberException for non-member`() {
-        val owner = createUser("owner@test.com")
-        val outsider = createUser("outsider@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val outsider = generator.user(email = "outsider@test.com")
         val group = createGroup(owner.id)
 
         assertFailsWith<NotGroupMemberException> {
@@ -235,7 +222,7 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `createExpense throws CurrencyNotFoundException for unknown currency`() {
-        val owner = createUser("owner@test.com")
+        val owner = generator.user(email = "owner@test.com")
         val group = createGroup(owner.id)
 
         assertFailsWith<CurrencyNotFoundException> {
@@ -250,8 +237,8 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `updateExpense recalculates balances correctly`() {
-        val owner = createUser("owner@test.com")
-        val member = createUser("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         joinGroup(member.id, owner.id, group.id)
 
@@ -279,8 +266,8 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `deleteExpense soft-deletes and reverses balances`() {
-        val owner = createUser("owner@test.com")
-        val member = createUser("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         joinGroup(member.id, owner.id, group.id)
 
@@ -300,8 +287,8 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `deleteExpense throws for non-creator member`() {
-        val owner = createUser("owner@test.com")
-        val member = createUser("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         joinGroup(member.id, owner.id, group.id)
 
@@ -319,24 +306,21 @@ class ExpenseServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `balances are netted when bidirectional debts exist`() {
-        val owner = createUser("owner@test.com")
-        val member = createUser("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         joinGroup(member.id, owner.id, group.id)
 
-        // owner pays 30 split equally: member owes owner 15
         expenseService.createExpense(
             owner.id, group.id,
             equalExpenseRequest(owner.id, listOf(owner.id, member.id), BigDecimal("30.00"))
         )
 
-        // member pays 10 split equally: owner owes member 5
         expenseService.createExpense(
             member.id, group.id,
             equalExpenseRequest(member.id, listOf(owner.id, member.id), BigDecimal("10.00"))
         )
 
-        // Net: member owes owner 15-5=10
         val balance = balanceRepository.findByGroupIdAndDebtorIdAndCreditorId(group.id, member.id, owner.id)
         assertNotNull(balance)
         assertEquals(BigDecimal("10.00"), balance!!.amount)
