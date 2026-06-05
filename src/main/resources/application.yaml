@@ -1,6 +1,15 @@
 spring:
   application:
     name: split-together
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
   datasource:
     url: jdbc:postgresql://localhost:5432/splittogether
     username: postgres
@@ -11,6 +20,9 @@ spring:
       ddl-auto: none
     show-sql: false
     open-in-view: false
+
+email:
+  from: ${MAIL_FROM:noreply@splittogether.com}
 
 auth:
   jwt:

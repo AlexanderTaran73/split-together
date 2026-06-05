@@ -1,8 +1,6 @@
 package com.splittogether.backend.balance.service
 
 import com.splittogether.backend.AbstractIntegrationTest
-import com.splittogether.backend.auth.dto.RegisterRequest
-import com.splittogether.backend.auth.service.AuthService
 import com.splittogether.backend.common.exception.NotGroupMemberException
 import com.splittogether.backend.expense.dto.CreateExpenseRequest
 import com.splittogether.backend.expense.dto.ParticipantRequest
@@ -10,11 +8,8 @@ import com.splittogether.backend.expense.service.ExpenseService
 import com.splittogether.backend.group.dto.CreateGroupRequest
 import com.splittogether.backend.group.dto.CreateInvitationRequest
 import com.splittogether.backend.group.dto.JoinGroupRequest
-import com.splittogether.backend.group.repository.GroupInvitationRepository
 import com.splittogether.backend.group.repository.GroupRepository
 import com.splittogether.backend.group.service.GroupService
-import com.splittogether.backend.user.entity.User
-import com.splittogether.backend.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.math.BigDecimal
@@ -26,15 +21,9 @@ class BalanceServiceTest : AbstractIntegrationTest() {
     @Autowired private lateinit var balanceService: BalanceService
     @Autowired private lateinit var expenseService: ExpenseService
     @Autowired private lateinit var groupService: GroupService
-    @Autowired private lateinit var authService: AuthService
-    @Autowired private lateinit var userRepository: UserRepository
     @Autowired private lateinit var groupRepository: GroupRepository
-    @Autowired private lateinit var groupInvitationRepository: GroupInvitationRepository
 
-    private fun createUser(email: String): User {
-        authService.register(RegisterRequest(email, "Password1!", "User"))
-        return userRepository.findByEmail(email)!!
-    }
+    // ── helpers ───────────────────────────────────────────────────────────────
 
     private fun createGroup(ownerId: Long): com.splittogether.backend.group.entity.Group {
         groupService.createGroup(ownerId, CreateGroupRequest("Test Group", null, "RUB"))
@@ -60,8 +49,8 @@ class BalanceServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `getBalances returns all debts in the group`() {
-        val owner = createUser("owner@test.com")
-        val member = createUser("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         joinGroup(member.id, owner.id, group.id)
         createExpense(owner.id, group.id, BigDecimal("30.00"), listOf(owner.id, member.id))
@@ -76,7 +65,7 @@ class BalanceServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `getBalances returns empty list when no expenses`() {
-        val owner = createUser("owner@test.com")
+        val owner = generator.user(email = "owner@test.com")
         val group = createGroup(owner.id)
 
         val balances = balanceService.getBalances(owner.id, group.id)
@@ -86,8 +75,8 @@ class BalanceServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `getBalances throws NotGroupMemberException for non-member`() {
-        val owner = createUser("owner@test.com")
-        val outsider = createUser("outsider@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val outsider = generator.user(email = "outsider@test.com")
         val group = createGroup(owner.id)
 
         assertFailsWith<NotGroupMemberException> {
@@ -99,19 +88,17 @@ class BalanceServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `getSimplifiedDebts returns minimal transactions`() {
-        val owner = createUser("owner@test.com")
-        val m1 = createUser("m1@test.com")
-        val m2 = createUser("m2@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val m1 = generator.user(email = "m1@test.com")
+        val m2 = generator.user(email = "m2@test.com")
         val group = createGroup(owner.id)
         joinGroup(m1.id, owner.id, group.id)
         joinGroup(m2.id, owner.id, group.id)
 
-        // owner pays 30 split equally: m1 and m2 each owe owner 10
         createExpense(owner.id, group.id, BigDecimal("30.00"), listOf(owner.id, m1.id, m2.id))
 
         val simplified = balanceService.getSimplifiedDebts(owner.id, group.id)
 
-        // Should produce at most 2 transactions (N-1 max)
         assertTrue(simplified.size <= 2)
         val total = simplified.fold(BigDecimal.ZERO) { acc, d -> acc.add(d.amount) }
         assertEquals(BigDecimal("20.00"), total)
@@ -119,14 +106,12 @@ class BalanceServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `getSimplifiedDebts cancels out mutual debts`() {
-        val owner = createUser("owner@test.com")
-        val member = createUser("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         joinGroup(member.id, owner.id, group.id)
 
-        // owner pays 30, member owes owner 15
         createExpense(owner.id, group.id, BigDecimal("30.00"), listOf(owner.id, member.id))
-        // member pays 10, owner owes member 5 → net member owes owner 10
         createExpense(member.id, group.id, BigDecimal("10.00"), listOf(owner.id, member.id))
 
         val simplified = balanceService.getSimplifiedDebts(owner.id, group.id)
@@ -139,7 +124,7 @@ class BalanceServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `getSimplifiedDebts returns empty when balances are zero`() {
-        val owner = createUser("owner@test.com")
+        val owner = generator.user(email = "owner@test.com")
         val group = createGroup(owner.id)
 
         val simplified = balanceService.getSimplifiedDebts(owner.id, group.id)
@@ -151,17 +136,14 @@ class BalanceServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `simplifyBalances persists simplified debts`() {
-        val a = createUser("a@test.com")
-        val b = createUser("b@test.com")
-        val c = createUser("c@test.com")
+        val a = generator.user(email = "a@test.com")
+        val b = generator.user(email = "b@test.com")
+        val c = generator.user(email = "c@test.com")
         val group = createGroup(a.id)
         joinGroup(b.id, a.id, group.id)
         joinGroup(c.id, a.id, group.id)
 
-        // A pays 20 for A+B: B owes A 10
         createExpense(a.id, group.id, BigDecimal("20.00"), listOf(a.id, b.id))
-        // B pays 20 for B+C: C owes B 10
-        // Net: A +10, B 0, C -10 → simplified: C owes A 10
         createExpense(b.id, group.id, BigDecimal("20.00"), listOf(b.id, c.id))
 
         assertEquals(2, balanceService.getBalances(a.id, group.id).size)
@@ -182,7 +164,7 @@ class BalanceServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `simplifyBalances on empty balances returns empty`() {
-        val owner = createUser("owner@test.com")
+        val owner = generator.user(email = "owner@test.com")
         val group = createGroup(owner.id)
 
         val result = balanceService.simplifyBalances(owner.id, group.id)
@@ -192,9 +174,9 @@ class BalanceServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `new expense after simplify is appended incrementally`() {
-        val a = createUser("a@test.com")
-        val b = createUser("b@test.com")
-        val c = createUser("c@test.com")
+        val a = generator.user(email = "a@test.com")
+        val b = generator.user(email = "b@test.com")
+        val c = generator.user(email = "c@test.com")
         val group = createGroup(a.id)
         joinGroup(b.id, a.id, group.id)
         joinGroup(c.id, a.id, group.id)
@@ -202,9 +184,7 @@ class BalanceServiceTest : AbstractIntegrationTest() {
         createExpense(a.id, group.id, BigDecimal("20.00"), listOf(a.id, b.id))
         createExpense(b.id, group.id, BigDecimal("20.00"), listOf(b.id, c.id))
         balanceService.simplifyBalances(a.id, group.id)
-        // Now: C→A 10
 
-        // A pays 10 for A+C: C owes A 5 more → C→A 15
         createExpense(a.id, group.id, BigDecimal("10.00"), listOf(a.id, c.id))
 
         val balances = balanceService.getBalances(a.id, group.id)

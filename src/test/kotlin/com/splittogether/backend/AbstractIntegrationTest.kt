@@ -11,6 +11,8 @@ import com.splittogether.backend.group.repository.GroupRepository
 import com.splittogether.backend.group.repository.InvitationUseRepository
 import com.splittogether.backend.settlement.repository.SettlementRepository
 import com.splittogether.backend.user.repository.UserRepository
+import com.splittogether.backend.email.CapturingMailSender
+import com.splittogether.backend.generator.Generator
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -18,11 +20,19 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 
-@SpringBootTest
+@SpringBootTest(
+    properties = [
+        "springdoc.api-docs.enabled=false",
+        "springdoc.swagger-ui.enabled=false"
+    ]
+)
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
 @Import(TestcontainersConfig::class)
 abstract class AbstractIntegrationTest {
+
+    @Autowired protected lateinit var generator: Generator
+    @Autowired protected lateinit var capturingMailSender: CapturingMailSender
 
     @Autowired private lateinit var invitationUseRepository: InvitationUseRepository
     @Autowired private lateinit var groupInvitationRepository: GroupInvitationRepository
@@ -38,6 +48,7 @@ abstract class AbstractIntegrationTest {
 
     @BeforeEach
     fun cleanDatabase() {
+        capturingMailSender.clear()
         invitationUseRepository.deleteAll()
         groupInvitationRepository.deleteAll()
         expenseParticipantRepository.deleteAll()

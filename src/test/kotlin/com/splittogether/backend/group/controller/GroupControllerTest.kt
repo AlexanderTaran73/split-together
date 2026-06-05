@@ -2,17 +2,12 @@ package com.splittogether.backend.group.controller
 
 import com.splittogether.backend.AbstractIntegrationTest
 import com.splittogether.backend.auth.dto.LoginRequest
-import com.splittogether.backend.auth.dto.RegisterRequest
-import com.splittogether.backend.auth.dto.VerifyEmailRequest
-import com.splittogether.backend.auth.repository.EmailVerificationRepository
 import com.splittogether.backend.auth.service.AuthService
 import com.splittogether.backend.group.dto.CreateGroupRequest
 import com.splittogether.backend.group.dto.CreateInvitationRequest
 import com.splittogether.backend.group.dto.JoinGroupRequest
 import com.splittogether.backend.group.repository.*
 import com.splittogether.backend.group.service.GroupService
-import com.splittogether.backend.user.entity.User
-import com.splittogether.backend.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
@@ -25,8 +20,6 @@ class GroupControllerTest : AbstractIntegrationTest() {
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var authService: AuthService
     @Autowired private lateinit var groupService: GroupService
-    @Autowired private lateinit var userRepository: UserRepository
-    @Autowired private lateinit var emailVerificationRepository: EmailVerificationRepository
     @Autowired private lateinit var groupRepository: GroupRepository
     @Autowired private lateinit var groupMemberRepository: GroupMemberRepository
     @Autowired private lateinit var groupInvitationRepository: GroupInvitationRepository
@@ -34,16 +27,8 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private fun registerAndVerify(email: String = "owner@test.com", password: String = "Password1!"): User {
-        authService.register(RegisterRequest(email, password, "User"))
-        val user = userRepository.findByEmail(email)!!
-        val code = emailVerificationRepository.findLatestUnused(user, "REGISTRATION")!!.code
-        authService.verifyEmail(VerifyEmailRequest(email, code))
-        return user
-    }
-
-    private fun token(email: String = "owner@test.com", password: String = "Password1!"): String =
-        authService.login(LoginRequest(email, password)).accessToken
+    private fun token(email: String = "owner@test.com"): String =
+        authService.login(LoginRequest(email, generator.defaultPassword)).accessToken
 
     private fun createGroup(userId: Long): com.splittogether.backend.group.entity.Group {
         groupService.createGroup(userId, CreateGroupRequest("Test Group", null, "RUB"))
@@ -59,12 +44,11 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `POST groups returns 201 for valid request`() {
-        val user = registerAndVerify()
-        val token = token()
+        generator.user(email = "owner@test.com")
 
         mockMvc.perform(
             post("/api/v1/groups")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"name":"My Group","currencyCode":"RUB"}""")
         ).andExpect(status().isCreated)
@@ -74,12 +58,11 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `POST groups returns 400 for blank name`() {
-        registerAndVerify()
-        val token = token()
+        generator.user(email = "owner@test.com")
 
         mockMvc.perform(
             post("/api/v1/groups")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"name":"","currencyCode":"RUB"}""")
         ).andExpect(status().isBadRequest)
@@ -98,13 +81,12 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `GET groups returns 200 with my groups`() {
-        val user = registerAndVerify()
-        val token = token()
+        val user = generator.user(email = "owner@test.com")
         createGroup(user.id)
 
         mockMvc.perform(
             get("/api/v1/groups")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
         ).andExpect(status().isOk)
             .andExpect(jsonPath("$[0].name").value("Test Group"))
     }
@@ -119,38 +101,35 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `GET group returns 200 for member`() {
-        val user = registerAndVerify()
-        val token = token()
+        val user = generator.user(email = "owner@test.com")
         val group = createGroup(user.id)
 
         mockMvc.perform(
             get("/api/v1/groups/${group.id}")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
         ).andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(group.id))
     }
 
     @Test
     fun `GET group returns 404 for unknown group`() {
-        registerAndVerify()
-        val token = token()
+        generator.user(email = "owner@test.com")
 
         mockMvc.perform(
             get("/api/v1/groups/999")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
         ).andExpect(status().isNotFound)
     }
 
     @Test
     fun `GET group returns 403 for non-member`() {
-        val owner = registerAndVerify()
-        val other = registerAndVerify("other@test.com")
-        val otherToken = token("other@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        generator.user(email = "other@test.com")
         val group = createGroup(owner.id)
 
         mockMvc.perform(
             get("/api/v1/groups/${group.id}")
-                .header("Authorization", "Bearer $otherToken")
+                .header("Authorization", "Bearer ${token("other@test.com")}")
         ).andExpect(status().isForbidden)
     }
 
@@ -158,13 +137,12 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `PUT group returns 200 with updated data`() {
-        val user = registerAndVerify()
-        val token = token()
+        val user = generator.user(email = "owner@test.com")
         val group = createGroup(user.id)
 
         mockMvc.perform(
             put("/api/v1/groups/${group.id}")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"name":"Updated Name"}""")
         ).andExpect(status().isOk)
@@ -173,15 +151,14 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `PUT group returns 403 for regular member`() {
-        val owner = registerAndVerify()
-        val member = registerAndVerify("member@test.com")
-        val memberToken = token("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         groupService.joinGroup(member.id, JoinGroupRequest(createLinkInviteCode(owner.id, group.id)))
 
         mockMvc.perform(
             put("/api/v1/groups/${group.id}")
-                .header("Authorization", "Bearer $memberToken")
+                .header("Authorization", "Bearer ${token("member@test.com")}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"name":"Hack"}""")
         ).andExpect(status().isForbidden)
@@ -191,13 +168,12 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `DELETE group returns 204 for owner`() {
-        val user = registerAndVerify()
-        val token = token()
+        val user = generator.user(email = "owner@test.com")
         val group = createGroup(user.id)
 
         mockMvc.perform(
             delete("/api/v1/groups/${group.id}")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
         ).andExpect(status().isNoContent)
     }
 
@@ -211,13 +187,12 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `GET members returns 200 with member list`() {
-        val user = registerAndVerify()
-        val token = token()
+        val user = generator.user(email = "owner@test.com")
         val group = createGroup(user.id)
 
         mockMvc.perform(
             get("/api/v1/groups/${group.id}/members")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
         ).andExpect(status().isOk)
             .andExpect(jsonPath("$[0].role").value("OWNER"))
     }
@@ -226,15 +201,14 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `DELETE member returns 204 when member leaves`() {
-        val owner = registerAndVerify()
-        val member = registerAndVerify("member@test.com")
-        val memberToken = token("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         groupService.joinGroup(member.id, JoinGroupRequest(createLinkInviteCode(owner.id, group.id)))
 
         mockMvc.perform(
             delete("/api/v1/groups/${group.id}/members/${member.id}")
-                .header("Authorization", "Bearer $memberToken")
+                .header("Authorization", "Bearer ${token("member@test.com")}")
         ).andExpect(status().isNoContent)
     }
 
@@ -242,15 +216,14 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `PUT owner returns 200 and transfers ownership`() {
-        val owner = registerAndVerify()
-        val member = registerAndVerify("member@test.com")
-        val token = token()
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         groupService.joinGroup(member.id, JoinGroupRequest(createLinkInviteCode(owner.id, group.id)))
 
         mockMvc.perform(
             put("/api/v1/groups/${group.id}/owner")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
                 .param("newOwnerId", member.id.toString())
         ).andExpect(status().isOk)
             .andExpect(jsonPath("$.role").value("OWNER"))
@@ -258,15 +231,14 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `PUT owner returns 403 for non-owner`() {
-        val owner = registerAndVerify()
-        val member = registerAndVerify("member@test.com")
-        val memberToken = token("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         groupService.joinGroup(member.id, JoinGroupRequest(createLinkInviteCode(owner.id, group.id)))
 
         mockMvc.perform(
             put("/api/v1/groups/${group.id}/owner")
-                .header("Authorization", "Bearer $memberToken")
+                .header("Authorization", "Bearer ${token("member@test.com")}")
                 .param("newOwnerId", owner.id.toString())
         ).andExpect(status().isForbidden)
     }
@@ -275,13 +247,12 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `POST invitations returns 201 with invite code`() {
-        val user = registerAndVerify()
-        val token = token()
+        val user = generator.user(email = "owner@test.com")
         val group = createGroup(user.id)
 
         mockMvc.perform(
             post("/api/v1/groups/${group.id}/invitations")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"type":"LINK"}""")
         ).andExpect(status().isCreated)
@@ -290,15 +261,14 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `POST invitations returns 403 for regular member`() {
-        val owner = registerAndVerify()
-        val member = registerAndVerify("member@test.com")
-        val memberToken = token("member@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         groupService.joinGroup(member.id, JoinGroupRequest(createLinkInviteCode(owner.id, group.id)))
 
         mockMvc.perform(
             post("/api/v1/groups/${group.id}/invitations")
-                .header("Authorization", "Bearer $memberToken")
+                .header("Authorization", "Bearer ${token("member@test.com")}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"type":"LINK"}""")
         ).andExpect(status().isForbidden)
@@ -308,15 +278,14 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `POST join returns 200 and adds user to group`() {
-        val owner = registerAndVerify()
-        val joiner = registerAndVerify("joiner@test.com")
-        val joinerToken = token("joiner@test.com")
+        val owner = generator.user(email = "owner@test.com")
+        val joiner = generator.user(email = "joiner@test.com")
         val group = createGroup(owner.id)
         val code = createLinkInviteCode(owner.id, group.id)
 
         mockMvc.perform(
             post("/api/v1/groups/join")
-                .header("Authorization", "Bearer $joinerToken")
+                .header("Authorization", "Bearer ${token("joiner@test.com")}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"inviteCode":"$code"}""")
         ).andExpect(status().isOk)
@@ -325,12 +294,11 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `POST join returns 400 for invalid invite code`() {
-        registerAndVerify()
-        val token = token()
+        generator.user(email = "owner@test.com")
 
         mockMvc.perform(
             post("/api/v1/groups/join")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"inviteCode":"invalid-code"}""")
         ).andExpect(status().isBadRequest)
@@ -340,14 +308,13 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `GET invitations returns 200 for owner`() {
-        val user = registerAndVerify()
-        val token = token()
+        val user = generator.user(email = "owner@test.com")
         val group = createGroup(user.id)
         createLinkInviteCode(user.id, group.id)
 
         mockMvc.perform(
             get("/api/v1/groups/${group.id}/invitations")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
         ).andExpect(status().isOk)
             .andExpect(jsonPath("$[0].status").value("PENDING"))
     }
@@ -356,15 +323,14 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `DELETE invitation returns 204 for owner`() {
-        val user = registerAndVerify()
-        val token = token()
+        val user = generator.user(email = "owner@test.com")
         val group = createGroup(user.id)
-        val result = groupService.createInvitation(user.id, group.id, CreateInvitationRequest("LINK"))
+        groupService.createInvitation(user.id, group.id, CreateInvitationRequest("LINK"))
         val inv = groupInvitationRepository.findAll().last()
 
         mockMvc.perform(
             delete("/api/v1/groups/${group.id}/invitations/${inv.id}")
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer ${token()}")
         ).andExpect(status().isNoContent)
     }
 }

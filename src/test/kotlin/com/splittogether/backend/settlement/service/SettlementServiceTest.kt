@@ -1,8 +1,6 @@
 package com.splittogether.backend.settlement.service
 
 import com.splittogether.backend.AbstractIntegrationTest
-import com.splittogether.backend.auth.dto.RegisterRequest
-import com.splittogether.backend.auth.service.AuthService
 import com.splittogether.backend.balance.service.BalanceService
 import com.splittogether.backend.common.exception.InsufficientPermissionsException
 import com.splittogether.backend.common.exception.InvalidSettlementException
@@ -12,12 +10,9 @@ import com.splittogether.backend.expense.service.ExpenseService
 import com.splittogether.backend.group.dto.CreateGroupRequest
 import com.splittogether.backend.group.dto.CreateInvitationRequest
 import com.splittogether.backend.group.dto.JoinGroupRequest
-import com.splittogether.backend.group.repository.GroupInvitationRepository
 import com.splittogether.backend.group.repository.GroupRepository
 import com.splittogether.backend.group.service.GroupService
 import com.splittogether.backend.settlement.dto.CreateSettlementRequest
-import com.splittogether.backend.user.entity.User
-import com.splittogether.backend.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.math.BigDecimal
@@ -30,15 +25,9 @@ class SettlementServiceTest : AbstractIntegrationTest() {
     @Autowired private lateinit var balanceService: BalanceService
     @Autowired private lateinit var expenseService: ExpenseService
     @Autowired private lateinit var groupService: GroupService
-    @Autowired private lateinit var authService: AuthService
-    @Autowired private lateinit var userRepository: UserRepository
     @Autowired private lateinit var groupRepository: GroupRepository
-    @Autowired private lateinit var groupInvitationRepository: GroupInvitationRepository
 
-    private fun createUser(email: String): User {
-        authService.register(RegisterRequest(email, "Password1!", "User"))
-        return userRepository.findByEmail(email)!!
-    }
+    // ── helpers ───────────────────────────────────────────────────────────────
 
     private fun createGroup(ownerId: Long): com.splittogether.backend.group.entity.Group {
         groupService.createGroup(ownerId, CreateGroupRequest("Test Group", null, "RUB"))
@@ -70,8 +59,8 @@ class SettlementServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `createSettlement creates pending settlement without affecting balances`() {
-        val payer = createUser("payer@test.com")
-        val receiver = createUser("receiver@test.com")
+        val payer = generator.user(email = "payer@test.com")
+        val receiver = generator.user(email = "receiver@test.com")
         val group = createGroup(payer.id)
         joinGroup(receiver.id, payer.id, group.id)
         createExpense(receiver.id, group.id, BigDecimal("20.00"), listOf(payer.id, receiver.id))
@@ -86,13 +75,12 @@ class SettlementServiceTest : AbstractIntegrationTest() {
         assertNull(result.confirmedAt)
         assertNull(result.rejectedAt)
 
-        // balance unchanged
         assertEquals(balanceBefore, balanceService.getBalances(payer.id, group.id))
     }
 
     @Test
     fun `createSettlement fails when payer equals receiver`() {
-        val owner = createUser("owner@test.com")
+        val owner = generator.user(email = "owner@test.com")
         val group = createGroup(owner.id)
 
         assertFailsWith<InvalidSettlementException> {
@@ -104,11 +92,10 @@ class SettlementServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `confirmSettlement updates balance and sets confirmedAt`() {
-        val payer = createUser("payer@test.com")
-        val receiver = createUser("receiver@test.com")
+        val payer = generator.user(email = "payer@test.com")
+        val receiver = generator.user(email = "receiver@test.com")
         val group = createGroup(payer.id)
         joinGroup(receiver.id, payer.id, group.id)
-        // payer owes receiver 10
         createExpense(receiver.id, group.id, BigDecimal("20.00"), listOf(payer.id, receiver.id))
 
         val settlement = createSettlement(payer.id, group.id, receiver.id, BigDecimal("10.00"))
@@ -117,18 +104,16 @@ class SettlementServiceTest : AbstractIntegrationTest() {
         assertEquals("CONFIRMED", result.status)
         assertNotNull(result.confirmedAt)
 
-        // debt fully settled
         val balances = balanceService.getBalances(payer.id, group.id)
         assertTrue(balances.isEmpty())
     }
 
     @Test
     fun `confirmSettlement reduces debt partially when amount is less than balance`() {
-        val payer = createUser("payer@test.com")
-        val receiver = createUser("receiver@test.com")
+        val payer = generator.user(email = "payer@test.com")
+        val receiver = generator.user(email = "receiver@test.com")
         val group = createGroup(payer.id)
         joinGroup(receiver.id, payer.id, group.id)
-        // payer owes receiver 15
         createExpense(receiver.id, group.id, BigDecimal("30.00"), listOf(payer.id, receiver.id))
 
         val settlement = createSettlement(payer.id, group.id, receiver.id, BigDecimal("10.00"))
@@ -143,8 +128,8 @@ class SettlementServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `confirmSettlement fails when called by non-receiver`() {
-        val payer = createUser("payer@test.com")
-        val receiver = createUser("receiver@test.com")
+        val payer = generator.user(email = "payer@test.com")
+        val receiver = generator.user(email = "receiver@test.com")
         val group = createGroup(payer.id)
         joinGroup(receiver.id, payer.id, group.id)
 
@@ -157,8 +142,8 @@ class SettlementServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `confirmSettlement fails when settlement is already confirmed`() {
-        val payer = createUser("payer@test.com")
-        val receiver = createUser("receiver@test.com")
+        val payer = generator.user(email = "payer@test.com")
+        val receiver = generator.user(email = "receiver@test.com")
         val group = createGroup(payer.id)
         joinGroup(receiver.id, payer.id, group.id)
 
@@ -174,8 +159,8 @@ class SettlementServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `rejectSettlement sets status and does not affect balances`() {
-        val payer = createUser("payer@test.com")
-        val receiver = createUser("receiver@test.com")
+        val payer = generator.user(email = "payer@test.com")
+        val receiver = generator.user(email = "receiver@test.com")
         val group = createGroup(payer.id)
         joinGroup(receiver.id, payer.id, group.id)
         createExpense(receiver.id, group.id, BigDecimal("20.00"), listOf(payer.id, receiver.id))
@@ -192,8 +177,8 @@ class SettlementServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `rejectSettlement fails when called by non-receiver`() {
-        val payer = createUser("payer@test.com")
-        val receiver = createUser("receiver@test.com")
+        val payer = generator.user(email = "payer@test.com")
+        val receiver = generator.user(email = "receiver@test.com")
         val group = createGroup(payer.id)
         joinGroup(receiver.id, payer.id, group.id)
 
@@ -208,8 +193,8 @@ class SettlementServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `getSettlements returns all settlements ordered by createdAt desc`() {
-        val payer = createUser("payer@test.com")
-        val receiver = createUser("receiver@test.com")
+        val payer = generator.user(email = "payer@test.com")
+        val receiver = generator.user(email = "receiver@test.com")
         val group = createGroup(payer.id)
         joinGroup(receiver.id, payer.id, group.id)
 
@@ -219,7 +204,6 @@ class SettlementServiceTest : AbstractIntegrationTest() {
         val settlements = settlementService.getSettlements(payer.id, group.id)
 
         assertEquals(2, settlements.size)
-        // most recent first
         assertEquals(BigDecimal("20.00"), settlements[0].amount)
         assertEquals(BigDecimal("10.00"), settlements[1].amount)
     }
