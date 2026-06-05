@@ -4,6 +4,9 @@ spring:
   autoconfigure:
     exclude: org.springframework.boot.mail.autoconfigure.MailSenderAutoConfiguration
 
+email:
+  enable-sending: false
+
 auth:
   jwt:
     secret: "tempMTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI"

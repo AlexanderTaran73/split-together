@@ -6,9 +6,11 @@ import com.splittogether.backend.email.service.EmailService
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.io.ClassPathResource
+import org.springframework.test.context.TestPropertySource
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+@TestPropertySource(properties = ["email.enable-sending=true"])
 class VerificationEmailTest : AbstractIntegrationTest() {
 
     @Autowired private lateinit var authService: AuthService

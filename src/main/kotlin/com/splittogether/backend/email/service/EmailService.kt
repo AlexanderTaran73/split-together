@@ -24,6 +24,10 @@ class EmailService(
     // TODO: replace with a persistent message queue (e.g. Kafka) to guarantee delivery on server crash
     @Async("emailExecutor")
     fun send(init: EmailMessageBuilder.() -> Unit) {
+        if (!emailProperties.enableSending) {
+            log.debug("Email sending is disabled, skipping")
+            return
+        }
         val builder = EmailMessageBuilder().apply(init)
         val message = mailSender.createMimeMessage()
         MimeMessageHelper(message, false, "UTF-8").apply {
