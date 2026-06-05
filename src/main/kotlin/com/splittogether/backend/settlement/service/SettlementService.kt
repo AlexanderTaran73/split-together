@@ -59,7 +59,8 @@ class SettlementService(
 
         val currency = currencyRepository.findByCode(request.currencyCode)
             ?: throw CurrencyNotFoundException("Currency not found: ${request.currencyCode}")
-        val status = settlementStatusRepository.findByCode(SettlementStatus.PENDING)!!
+        val status = settlementStatusRepository.findByCode(SettlementStatus.PENDING)
+            ?: error("Missing reference data: settlement_status=${SettlementStatus.PENDING}")
 
         val payer = userRepository.getReferenceById(userId)
         val receiver = userRepository.getReferenceById(request.receiverId)
@@ -88,9 +89,10 @@ class SettlementService(
 
     @Transactional
     fun confirmSettlement(userId: Long, groupId: Long, settlementId: Long): SettlementResponse {
-        val settlement = getValidatedSettlement(userId, groupId, settlementId, requireReceiver = true)
+        val settlement = getValidatedSettlement(userId, groupId, settlementId)
 
-        settlement.status = settlementStatusRepository.findByCode(SettlementStatus.CONFIRMED)!!
+        settlement.status = settlementStatusRepository.findByCode(SettlementStatus.CONFIRMED)
+            ?: error("Missing reference data: settlement_status=${SettlementStatus.CONFIRMED}")
         settlement.confirmedAt = Instant.now()
         settlementRepository.save(settlement)
 
@@ -101,21 +103,17 @@ class SettlementService(
 
     @Transactional
     fun rejectSettlement(userId: Long, groupId: Long, settlementId: Long): SettlementResponse {
-        val settlement = getValidatedSettlement(userId, groupId, settlementId, requireReceiver = true)
+        val settlement = getValidatedSettlement(userId, groupId, settlementId)
 
-        settlement.status = settlementStatusRepository.findByCode(SettlementStatus.REJECTED)!!
+        settlement.status = settlementStatusRepository.findByCode(SettlementStatus.REJECTED)
+            ?: error("Missing reference data: settlement_status=${SettlementStatus.REJECTED}")
         settlement.rejectedAt = Instant.now()
         settlementRepository.save(settlement)
 
         return settlement.toResponse()
     }
 
-    private fun getValidatedSettlement(
-        userId: Long,
-        groupId: Long,
-        settlementId: Long,
-        requireReceiver: Boolean
-    ): Settlement {
+    private fun getValidatedSettlement(userId: Long, groupId: Long, settlementId: Long): Settlement {
         if (!groupRepository.existsById(groupId)) throw GroupNotFoundException("Group not found")
         requireActiveMember(groupId, userId)
 
@@ -125,7 +123,7 @@ class SettlementService(
         if (settlement.group.id != groupId)
             throw SettlementNotFoundException("Settlement not found")
 
-        if (requireReceiver && settlement.receiver.id != userId)
+        if (settlement.receiver.id != userId)
             throw InsufficientPermissionsException("Only the receiver can perform this action")
 
         if (settlement.status.code != SettlementStatus.PENDING)
