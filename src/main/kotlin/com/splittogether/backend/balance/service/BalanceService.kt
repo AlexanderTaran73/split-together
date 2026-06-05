@@ -183,4 +183,11 @@ class BalanceService(
 
         return result
     }
+
+    @Transactional(readOnly = true)
+    fun getNetBalance(userId: Long, groupId: Long): BigDecimal {
+        val owed = balanceRepository.sumOwedInGroup(userId, groupId) ?: BigDecimal.ZERO
+        val owing = balanceRepository.sumOwingInGroup(userId, groupId) ?: BigDecimal.ZERO
+        return owed - owing
+    }
 }

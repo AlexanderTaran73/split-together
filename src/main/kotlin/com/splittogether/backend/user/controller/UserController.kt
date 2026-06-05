@@ -2,6 +2,7 @@ package com.splittogether.backend.user.controller
 
 import com.splittogether.backend.auth.security.AppUserDetails
 import com.splittogether.backend.group.dto.GroupResponse
+import com.splittogether.backend.group.dto.IncomingInvitationResponse
 import com.splittogether.backend.user.dto.UpdateProfileRequest
 import com.splittogether.backend.user.dto.UserBalanceResponse
 import com.splittogether.backend.user.dto.UserResponse
@@ -35,6 +36,10 @@ class UserController(private val userService: UserService) {
     @GetMapping("/me/balance")
     fun getMyBalance(@AuthenticationPrincipal user: AppUserDetails): ResponseEntity<UserBalanceResponse> =
         ResponseEntity.ok(userService.getMyBalance(user.userId))
+
+    @GetMapping("/me/invitations")
+    fun getMyInvitations(@AuthenticationPrincipal user: AppUserDetails): ResponseEntity<List<IncomingInvitationResponse>> =
+        ResponseEntity.ok(userService.getMyInvitations(user.userId))
 
     @PutMapping("/me")
     fun updateMe(

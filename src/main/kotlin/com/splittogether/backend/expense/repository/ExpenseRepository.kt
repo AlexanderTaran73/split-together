@@ -8,4 +8,7 @@ interface ExpenseRepository : JpaRepository<Expense, Long> {
 
     @Query("SELECT e FROM Expense e WHERE e.group.id = :groupId AND e.deletedAt IS NULL ORDER BY e.expenseDate DESC, e.createdAt DESC")
     fun findActiveByGroupId(groupId: Long): List<Expense>
+
+    @Query("SELECT COUNT(e) FROM Expense e WHERE e.group.id = :groupId AND e.deletedAt IS NULL")
+    fun countActiveByGroupId(groupId: Long): Long
 }

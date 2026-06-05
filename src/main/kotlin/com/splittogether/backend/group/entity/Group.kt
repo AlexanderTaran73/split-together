@@ -37,5 +37,8 @@ class Group(
 
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: Instant = Instant.now()
+    var updatedAt: Instant = Instant.now(),
+
+    @Column(name = "archived_at")
+    var archivedAt: Instant? = null
 )

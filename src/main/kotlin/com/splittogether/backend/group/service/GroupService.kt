@@ -1,5 +1,7 @@
 package com.splittogether.backend.group.service
 
+import com.splittogether.backend.balance.service.BalanceService
+import com.splittogether.backend.expense.service.ExpenseService
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.common.repository.CurrencyRepository
 import com.splittogether.backend.group.dto.*
@@ -23,7 +25,9 @@ class GroupService(
     private val groupStatusRepository: GroupStatusRepository,
     private val membershipStatusRepository: MembershipStatusRepository,
     private val invitationTypeRepository: InvitationTypeRepository,
-    private val invitationStatusRepository: InvitationStatusRepository
+    private val invitationStatusRepository: InvitationStatusRepository,
+    private val balanceService: BalanceService,
+    private val expenseService: ExpenseService
 ) {
 
     private fun groupRole(code: String): GroupRole =
@@ -61,7 +65,7 @@ class GroupService(
             throw GroupArchivedException("Group is archived")
     }
 
-    private fun Group.toResponse(): GroupResponse = GroupResponse(
+    private fun Group.toResponse(userId: Long): GroupResponse = GroupResponse(
         id = id,
         name = name,
         description = description,
@@ -70,7 +74,12 @@ class GroupService(
         ownerId = owner.id,
         ownerDisplayName = owner.displayName,
         memberCount = groupMemberRepository.countActiveMembersByGroupId(id),
-        createdAt = createdAt
+        expenseCount = expenseService.countActiveByGroupId(id),
+        currentUserRole = groupMemberRepository.findByGroupIdAndUserId(id, userId)?.role?.code ?: "",
+        currentUserBalance = balanceService.getNetBalance(userId, id),
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        archivedAt = archivedAt
     )
 
     private fun GroupMember.toResponse() = GroupMemberResponse(
@@ -120,19 +129,19 @@ class GroupService(
             )
         )
 
-        return group.toResponse()
+        return group.toResponse(userId)
     }
 
     @Transactional(readOnly = true)
     fun getGroup(userId: Long, groupId: Long): GroupResponse {
         val group = groupRepository.findById(groupId).orElseThrow { GroupNotFoundException("Group not found") }
         requireActiveMember(groupId, userId)
-        return group.toResponse()
+        return group.toResponse(userId)
     }
 
     @Transactional(readOnly = true)
     fun getMyGroups(userId: Long): List<GroupResponse> =
-        groupMemberRepository.findActiveByUserId(userId).map { it.group.toResponse() }
+        groupMemberRepository.findActiveByUserId(userId).map { it.group.toResponse(userId) }
 
     @Transactional
     fun updateGroup(userId: Long, groupId: Long, request: UpdateGroupRequest): GroupResponse {
@@ -143,7 +152,7 @@ class GroupService(
 
         group.name = request.name
         group.description = request.description
-        return groupRepository.save(group).toResponse()
+        return groupRepository.save(group).toResponse(userId)
     }
 
     @Transactional
@@ -154,6 +163,7 @@ class GroupService(
         requireOwner(member)
 
         group.status = groupStatus(GroupStatus.ARCHIVED)
+        group.archivedAt = Instant.now()
         groupRepository.save(group)
     }
 
@@ -331,6 +341,71 @@ class GroupService(
         if (maxUses != null && usesCount >= maxUses)
             throw InvalidInvitationException("Invitation has reached its maximum uses")
 
+        addMemberAndRecordUse(userId, invitation)
+
+        if (invitation.type.code == InvitationType.DIRECT) {
+            invitation.status = invStatus(InvitationStatus.ACCEPTED)
+            groupInvitationRepository.save(invitation)
+        }
+
+        return group.toResponse(userId)
+    }
+
+    @Transactional(readOnly = true)
+    fun getMyInvitations(userId: Long): List<IncomingInvitationResponse> =
+        groupInvitationRepository.findPendingDirectByInvitedUserId(userId, Instant.now()).map {
+            IncomingInvitationResponse(
+                id = it.id,
+                groupId = it.group.id,
+                groupName = it.group.name,
+                groupCurrencyCode = it.group.currency.code,
+                invitedById = it.createdBy.id,
+                invitedByDisplayName = it.createdBy.displayName,
+                expiresAt = it.expiresAt,
+                createdAt = it.createdAt
+            )
+        }
+
+    @Transactional
+    fun acceptInvitation(userId: Long, invitationId: Long): GroupResponse {
+        val invitation = groupInvitationRepository.findById(invitationId)
+            .orElseThrow { InvitationNotFoundException("Invitation not found") }
+
+        if (invitation.type.code != InvitationType.DIRECT)
+            throw InvalidInvitationException("Only direct invitations can be accepted this way")
+        if (invitation.invitedUser?.id != userId)
+            throw InvalidInvitationException("This invitation is not for you")
+        if (invitation.status.code != InvitationStatus.PENDING)
+            throw InvalidInvitationException("Invitation is no longer pending")
+        if (invitation.expiresAt != null && Instant.now().isAfter(invitation.expiresAt))
+            throw InvalidInvitationException("Invitation has expired")
+
+        requireActiveGroup(invitation.group)
+        addMemberAndRecordUse(userId, invitation)
+        invitation.status = invStatus(InvitationStatus.ACCEPTED)
+        groupInvitationRepository.save(invitation)
+
+        return invitation.group.toResponse(userId)
+    }
+
+    @Transactional
+    fun rejectInvitation(userId: Long, invitationId: Long) {
+        val invitation = groupInvitationRepository.findById(invitationId)
+            .orElseThrow { InvitationNotFoundException("Invitation not found") }
+
+        if (invitation.type.code != InvitationType.DIRECT)
+            throw InvalidInvitationException("Only direct invitations can be rejected")
+        if (invitation.invitedUser?.id != userId)
+            throw InvalidInvitationException("This invitation is not for you")
+        if (invitation.status.code != InvitationStatus.PENDING)
+            throw InvalidInvitationException("Invitation is no longer pending")
+
+        invitation.status = invStatus(InvitationStatus.DECLINED)
+        groupInvitationRepository.save(invitation)
+    }
+
+    private fun addMemberAndRecordUse(userId: Long, invitation: GroupInvitation) {
+        val group = invitation.group
         val existingMember = groupMemberRepository.findByGroupIdAndUserId(group.id, userId)
         if (existingMember?.status?.code == MembershipStatus.ACTIVE)
             throw AlreadyGroupMemberException("You are already a member of this group")
@@ -356,12 +431,5 @@ class GroupService(
         }
 
         invitationUseRepository.save(InvitationUse(invitation = invitation, user = user))
-
-        if (invitation.type.code == InvitationType.DIRECT) {
-            invitation.status = invStatus(InvitationStatus.ACCEPTED)
-            groupInvitationRepository.save(invitation)
-        }
-
-        return group.toResponse()
     }
 }
