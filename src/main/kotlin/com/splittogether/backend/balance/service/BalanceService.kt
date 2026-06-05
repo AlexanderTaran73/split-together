@@ -7,9 +7,8 @@ import com.splittogether.backend.balance.entity.Balance
 import com.splittogether.backend.balance.repository.BalanceRepository
 import com.splittogether.backend.common.exception.GroupNotFoundException
 import com.splittogether.backend.common.exception.NotGroupMemberException
-import com.splittogether.backend.group.entity.MembershipStatus
-import com.splittogether.backend.group.repository.GroupMemberRepository
 import com.splittogether.backend.group.repository.GroupRepository
+import com.splittogether.backend.group.service.MembershipGuard
 import com.splittogether.backend.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -20,7 +19,7 @@ import java.math.RoundingMode
 class BalanceService(
     private val balanceRepository: BalanceRepository,
     private val groupRepository: GroupRepository,
-    private val groupMemberRepository: GroupMemberRepository,
+    private val membershipGuard: MembershipGuard,
     private val userRepository: UserRepository
 ) {
 
@@ -63,9 +62,7 @@ class BalanceService(
     @Transactional(readOnly = true)
     fun getBalances(userId: Long, groupId: Long): List<BalanceEntryResponse> {
         if (!groupRepository.existsById(groupId)) throw GroupNotFoundException("Group not found")
-        groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
-            ?.takeIf { it.status.code == MembershipStatus.ACTIVE }
-            ?: throw NotGroupMemberException("You are not a member of this group")
+        membershipGuard.requireActiveMember(groupId, userId)
 
         return balanceRepository.findByGroupId(groupId).map { b ->
             BalanceEntryResponse(
@@ -81,9 +78,7 @@ class BalanceService(
     @Transactional(readOnly = true)
     fun getSimplifiedDebts(userId: Long, groupId: Long): List<SimplifiedDebtResponse> {
         if (!groupRepository.existsById(groupId)) throw GroupNotFoundException("Group not found")
-        groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
-            ?.takeIf { it.status.code == MembershipStatus.ACTIVE }
-            ?: throw NotGroupMemberException("You are not a member of this group")
+        membershipGuard.requireActiveMember(groupId, userId)
 
         val balances = balanceRepository.findByGroupId(groupId)
         val userNames = balances.flatMap { listOf(it.debtor, it.creditor) }
@@ -103,9 +98,8 @@ class BalanceService(
     @Transactional
     fun simplifyBalances(userId: Long, groupId: Long): List<BalanceEntryResponse> {
         if (!groupRepository.existsById(groupId)) throw GroupNotFoundException("Group not found")
-        groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
-            ?.takeIf { it.status.code == MembershipStatus.ACTIVE }
-            ?: throw NotGroupMemberException("You are not a member of this group")
+        val member = membershipGuard.requireActiveMember(groupId, userId)
+        membershipGuard.requireAdminOrOwner(member)
 
         val balances = balanceRepository.findByGroupId(groupId)
         if (balances.isEmpty()) return emptyList()
@@ -189,5 +183,17 @@ class BalanceService(
         val owed = balanceRepository.sumOwedInGroup(userId, groupId) ?: BigDecimal.ZERO
         val owing = balanceRepository.sumOwingInGroup(userId, groupId) ?: BigDecimal.ZERO
         return owed - owing
+    }
+
+    @Transactional(readOnly = true)
+    fun getNetBalancesForUserInGroups(userId: Long, groupIds: List<Long>): Map<Long, BigDecimal> {
+        if (groupIds.isEmpty()) return emptyMap()
+        val owed = balanceRepository.sumOwedInGroups(userId, groupIds)
+            .associate { it.groupId to (it.total ?: BigDecimal.ZERO) }
+        val owing = balanceRepository.sumOwingInGroups(userId, groupIds)
+            .associate { it.groupId to (it.total ?: BigDecimal.ZERO) }
+        return (owed.keys + owing.keys).associateWith { groupId ->
+            (owed[groupId] ?: BigDecimal.ZERO).subtract(owing[groupId] ?: BigDecimal.ZERO)
+        }
     }
 }
