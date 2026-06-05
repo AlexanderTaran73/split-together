@@ -2,6 +2,7 @@ package com.splittogether.backend.settlement.controller
 
 import com.splittogether.backend.auth.security.AppUserDetails
 import com.splittogether.backend.settlement.dto.CreateSettlementRequest
+import com.splittogether.backend.settlement.dto.RejectSettlementRequest
 import com.splittogether.backend.settlement.dto.SettlementResponse
 import com.splittogether.backend.settlement.service.SettlementService
 import jakarta.validation.Valid
@@ -42,7 +43,8 @@ class SettlementController(private val settlementService: SettlementService) {
     fun rejectSettlement(
         @AuthenticationPrincipal user: AppUserDetails,
         @PathVariable groupId: Long,
-        @PathVariable settlementId: Long
+        @PathVariable settlementId: Long,
+        @RequestBody(required = false) request: RejectSettlementRequest?
     ): ResponseEntity<SettlementResponse> =
-        ResponseEntity.ok(settlementService.rejectSettlement(user.userId, groupId, settlementId))
+        ResponseEntity.ok(settlementService.rejectSettlement(user.userId, groupId, settlementId, request?.rejectionReason))
 }

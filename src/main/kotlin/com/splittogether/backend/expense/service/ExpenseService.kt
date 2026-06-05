@@ -7,6 +7,7 @@ import com.splittogether.backend.expense.dto.*
 import com.splittogether.backend.expense.entity.Expense
 import com.splittogether.backend.expense.entity.ExpenseParticipant
 import com.splittogether.backend.expense.entity.SplitMethod
+import com.splittogether.backend.expense.entity.ExpenseConfirmationStatus
 import com.splittogether.backend.expense.repository.*
 import com.splittogether.backend.group.entity.GroupRole
 import com.splittogether.backend.group.entity.GroupStatus
@@ -23,6 +24,7 @@ import java.time.Instant
 class ExpenseService(
     private val expenseRepository: ExpenseRepository,
     private val expenseParticipantRepository: ExpenseParticipantRepository,
+    private val expenseConfirmationStatusRepository: ExpenseConfirmationStatusRepository,
     private val splitMethodRepository: SplitMethodRepository,
     private val expenseCategoryRepository: ExpenseCategoryRepository,
     private val groupRepository: GroupRepository,
@@ -43,6 +45,10 @@ class ExpenseService(
     private fun requireActiveMember(groupId: Long, userId: Long) =
         membershipGuard.requireActiveMember(groupId, userId)
 
+    private fun confirmationStatus(code: String) =
+        expenseConfirmationStatusRepository.findByCode(code)
+            ?: error("Missing reference data: expense_confirmation_status=$code")
+
     private fun Expense.toResponse(participants: List<ExpenseParticipant>) = ExpenseResponse(
         id = id,
         groupId = group.id,
@@ -60,7 +66,9 @@ class ExpenseService(
                 userId = it.user.id,
                 displayName = it.user.displayName,
                 share = it.share,
-                weight = it.weight
+                weight = it.weight,
+                confirmationStatus = it.confirmationStatus.code,
+                disputeReason = it.disputeReason
             )
         },
         createdAt = createdAt
@@ -132,13 +140,17 @@ class ExpenseService(
             )
         )
 
+        val pendingStatus   = confirmationStatus(ExpenseConfirmationStatus.PENDING)
+        val confirmedStatus = confirmationStatus(ExpenseConfirmationStatus.CONFIRMED)
+
         val savedParticipants = request.participants.mapIndexed { i, p ->
             expenseParticipantRepository.save(
                 ExpenseParticipant(
                     expense = expense,
                     user = participantUsers[i],
                     share = shares[p.userId]!!.share,
-                    weight = shares[p.userId]!!.weight
+                    weight = shares[p.userId]!!.weight,
+                    confirmationStatus = if (participantUsers[i].id == userId) confirmedStatus else pendingStatus
                 )
             )
         }
@@ -205,6 +217,9 @@ class ExpenseService(
         expense.expenseDate = request.expenseDate
         expenseRepository.save(expense)
 
+        val pendingStatus   = confirmationStatus(ExpenseConfirmationStatus.PENDING)
+        val confirmedStatus = confirmationStatus(ExpenseConfirmationStatus.CONFIRMED)
+
         expenseParticipantRepository.deleteByExpenseId(expenseId)
         val newParticipants = request.participants.mapIndexed { i, p ->
             expenseParticipantRepository.save(
@@ -212,7 +227,8 @@ class ExpenseService(
                     expense = expense,
                     user = participantUsers[i],
                     share = shares[p.userId]!!.share,
-                    weight = shares[p.userId]!!.weight
+                    weight = shares[p.userId]!!.weight,
+                    confirmationStatus = if (participantUsers[i].id == userId) confirmedStatus else pendingStatus
                 )
             )
         }
@@ -253,6 +269,50 @@ class ExpenseService(
         expense.deletedAt = Instant.now()
         expense.deletedBy = deleter
         expenseRepository.save(expense)
+    }
+
+    @Transactional
+    fun confirmExpense(userId: Long, groupId: Long, expenseId: Long): ExpenseResponse {
+        val expense = loadActiveExpense(userId, groupId, expenseId)
+
+        val participant = expenseParticipantRepository.findByExpenseIdAndUserId(expenseId, userId)
+            ?: throw InvalidExpenseException("You are not a participant of this expense")
+
+        if (participant.confirmationStatus.code == ExpenseConfirmationStatus.CONFIRMED)
+            throw InvalidExpenseException("You have already confirmed this expense")
+
+        participant.confirmationStatus = confirmationStatus(ExpenseConfirmationStatus.CONFIRMED)
+        participant.disputeReason = null
+        expenseParticipantRepository.save(participant)
+
+        return expense.toResponse(expenseParticipantRepository.findByExpenseId(expenseId))
+    }
+
+    @Transactional
+    fun disputeExpense(userId: Long, groupId: Long, expenseId: Long, reason: String): ExpenseResponse {
+        val expense = loadActiveExpense(userId, groupId, expenseId)
+
+        if (expense.createdBy.id == userId)
+            throw InvalidExpenseException("Expense creator cannot dispute their own expense")
+
+        val participant = expenseParticipantRepository.findByExpenseIdAndUserId(expenseId, userId)
+            ?: throw InvalidExpenseException("You are not a participant of this expense")
+
+        participant.confirmationStatus = confirmationStatus(ExpenseConfirmationStatus.DISPUTED)
+        participant.disputeReason = reason
+        expenseParticipantRepository.save(participant)
+
+        return expense.toResponse(expenseParticipantRepository.findByExpenseId(expenseId))
+    }
+
+    private fun loadActiveExpense(userId: Long, groupId: Long, expenseId: Long): Expense {
+        if (!groupRepository.existsById(groupId)) throw GroupNotFoundException("Group not found")
+        requireActiveMember(groupId, userId)
+        val expense = expenseRepository.findById(expenseId)
+            .orElseThrow { ExpenseNotFoundException("Expense not found") }
+        if (expense.group.id != groupId || expense.deletedAt != null)
+            throw ExpenseNotFoundException("Expense not found")
+        return expense
     }
 
     // ── share calculation ──────────────────────────────────────────────────────

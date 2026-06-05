@@ -27,6 +27,13 @@ class ExpenseParticipant(
     @Column(precision = 10, scale = 4)
     var weight: BigDecimal? = null,
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "confirmation_status_id", nullable = false)
+    var confirmationStatus: ExpenseConfirmationStatus,
+
+    @Column(name = "dispute_reason", length = 500)
+    var disputeReason: String? = null,
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),

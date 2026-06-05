@@ -41,6 +41,8 @@ class SettlementService(
         amount = amount,
         currencyCode = currency.code,
         status = status.code,
+        note = note,
+        rejectionReason = rejectionReason,
         createdAt = createdAt,
         confirmedAt = confirmedAt,
         rejectedAt = rejectedAt
@@ -73,7 +75,8 @@ class SettlementService(
                 amount = request.amount,
                 currency = currency,
                 status = status,
-                createdBy = payer
+                createdBy = payer,
+                note = request.note
             )
         )
 
@@ -102,11 +105,12 @@ class SettlementService(
     }
 
     @Transactional
-    fun rejectSettlement(userId: Long, groupId: Long, settlementId: Long): SettlementResponse {
+    fun rejectSettlement(userId: Long, groupId: Long, settlementId: Long, rejectionReason: String?): SettlementResponse {
         val settlement = getValidatedSettlement(userId, groupId, settlementId)
 
         settlement.status = settlementStatusRepository.findByCode(SettlementStatus.REJECTED)
             ?: error("Missing reference data: settlement_status=${SettlementStatus.REJECTED}")
+        settlement.rejectionReason = rejectionReason
         settlement.rejectedAt = Instant.now()
         settlementRepository.save(settlement)
 

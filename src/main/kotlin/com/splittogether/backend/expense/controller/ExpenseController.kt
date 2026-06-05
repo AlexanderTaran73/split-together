@@ -2,6 +2,7 @@ package com.splittogether.backend.expense.controller
 
 import com.splittogether.backend.auth.security.AppUserDetails
 import com.splittogether.backend.expense.dto.CreateExpenseRequest
+import com.splittogether.backend.expense.dto.DisputeExpenseRequest
 import com.splittogether.backend.expense.dto.ExpenseResponse
 import com.splittogether.backend.expense.dto.UpdateExpenseRequest
 import com.splittogether.backend.expense.service.ExpenseService
@@ -56,4 +57,21 @@ class ExpenseController(private val expenseService: ExpenseService) {
         expenseService.deleteExpense(user.userId, groupId, expenseId)
         return ResponseEntity.noContent().build()
     }
+
+    @PostMapping("/{expenseId}/confirm")
+    fun confirmExpense(
+        @AuthenticationPrincipal user: AppUserDetails,
+        @PathVariable groupId: Long,
+        @PathVariable expenseId: Long
+    ): ResponseEntity<ExpenseResponse> =
+        ResponseEntity.ok(expenseService.confirmExpense(user.userId, groupId, expenseId))
+
+    @PostMapping("/{expenseId}/dispute")
+    fun disputeExpense(
+        @AuthenticationPrincipal user: AppUserDetails,
+        @PathVariable groupId: Long,
+        @PathVariable expenseId: Long,
+        @Valid @RequestBody request: DisputeExpenseRequest
+    ): ResponseEntity<ExpenseResponse> =
+        ResponseEntity.ok(expenseService.disputeExpense(user.userId, groupId, expenseId, request.reason))
 }

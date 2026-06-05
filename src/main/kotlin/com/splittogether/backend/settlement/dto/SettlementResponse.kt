@@ -13,6 +13,8 @@ data class SettlementResponse(
     val amount: BigDecimal,
     val currencyCode: String,
     val status: String,
+    val note: String?,
+    val rejectionReason: String?,
     val createdAt: Instant,
     val confirmedAt: Instant?,
     val rejectedAt: Instant?

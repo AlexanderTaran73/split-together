@@ -14,5 +14,7 @@ data class CreateSettlementRequest(
     val amount: BigDecimal,
 
     @field:NotBlank
-    val currencyCode: String
+    val currencyCode: String,
+
+    val note: String? = null
 )

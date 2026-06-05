@@ -65,7 +65,7 @@ class AuthService(
         if (!passwordEncoder.matches(request.password, user.passwordHash)) {
             throw InvalidCredentialsException("Invalid email or password")
         }
-        if (!user.emailVerified) {
+        if (user.emailVerifiedAt == null) {
             throw EmailNotVerifiedException("Email not verified")
         }
         return issueTokens(user)
@@ -108,7 +108,7 @@ class AuthService(
             throw InvalidVerificationCodeException("Invalid verification code")
         }
         verification.usedAt = Instant.now()
-        user.emailVerified = true
+        user.emailVerifiedAt = Instant.now()
     }
 
     @Transactional
@@ -144,7 +144,7 @@ class AuthService(
         val user = userRepository.findByEmail(request.email)
             ?: throw UserNotFoundException("User not found")
 
-        if (user.emailVerified) {
+        if (user.emailVerifiedAt != null) {
             throw EmailAlreadyVerifiedException("Email is already verified")
         }
         val code = saveVerificationCode(user, EmailVerificationPurpose.REGISTRATION)

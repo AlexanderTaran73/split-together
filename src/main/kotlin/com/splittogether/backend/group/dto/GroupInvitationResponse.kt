@@ -6,10 +6,11 @@ data class GroupInvitationResponse(
     val id: Long,
     val type: String,
     val status: String,
-    val inviteCode: String?,
-    val invitedUserId: Long?,
+    val token: String?,
+    val targetUserId: Long?,
+    val targetEmail: String?,
     val maxUses: Int?,
-    val usesCount: Long,
+    val usedCount: Int,
     val expiresAt: Instant?,
     val createdAt: Instant
 )

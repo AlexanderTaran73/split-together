@@ -37,7 +37,7 @@ class AuthServiceTest : AbstractIntegrationTest() {
 
         val user = userRepository.findByEmail("user@test.com")
         assertNotNull(user)
-        assertFalse(user!!.emailVerified)
+        assertFalse(user!!.emailVerifiedAt != null)
         assertNotNull(emailVerificationRepository.findLatestUnused(user, "REGISTRATION"))
     }
 
@@ -95,7 +95,7 @@ class AuthServiceTest : AbstractIntegrationTest() {
         authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
         verifyUserEmail("user@test.com")
 
-        assertTrue(userRepository.findByEmail("user@test.com")!!.emailVerified)
+        assertTrue(userRepository.findByEmail("user@test.com")!!.emailVerifiedAt != null)
     }
 
     @Test
