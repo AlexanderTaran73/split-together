@@ -37,7 +37,7 @@ class UserServiceTest : AbstractIntegrationTest() {
 
     private fun joinGroup(userId: Long, ownerId: Long, groupId: Long) {
         val result = groupService.createInvitation(ownerId, groupId, CreateInvitationRequest("LINK"))
-        groupService.joinGroup(userId, JoinGroupRequest(result.inviteCode!!))
+        groupService.joinGroup(userId, JoinGroupRequest(result.token!!))
     }
 
     private fun createExpense(payerId: Long, groupId: Long, amount: BigDecimal, participantIds: List<Long>) =

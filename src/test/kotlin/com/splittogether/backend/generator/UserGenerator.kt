@@ -1,6 +1,7 @@
 package com.splittogether.backend.generator
 
 import com.splittogether.backend.user.entity.User
+import java.time.Instant
 
 interface GeneratorBase {
     val generator: Generator
@@ -13,7 +14,12 @@ interface UserGenerator : GeneratorBase {
         emailVerified: Boolean = true
     ): User = generator.make {
         userRepository.save(
-            User(email = email, passwordHash = passwordHash, displayName = displayName, emailVerified = emailVerified)
+            User(
+                email = email,
+                passwordHash = passwordHash,
+                displayName = displayName,
+                emailVerifiedAt = if (emailVerified) Instant.now() else null
+            )
         )
     }
 }

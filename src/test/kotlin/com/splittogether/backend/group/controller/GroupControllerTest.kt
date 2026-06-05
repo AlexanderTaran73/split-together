@@ -37,7 +37,7 @@ class GroupControllerTest : AbstractIntegrationTest() {
 
     private fun createLinkInviteCode(userId: Long, groupId: Long): String {
         val result = groupService.createInvitation(userId, groupId, CreateInvitationRequest("LINK"))
-        return result.inviteCode!!
+        return result.token!!
     }
 
     // ── POST /groups ──────────────────────────────────────────────────────────
@@ -256,7 +256,7 @@ class GroupControllerTest : AbstractIntegrationTest() {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"type":"LINK"}""")
         ).andExpect(status().isCreated)
-            .andExpect(jsonPath("$.inviteCode").exists())
+            .andExpect(jsonPath("$.token").exists())
     }
 
     @Test

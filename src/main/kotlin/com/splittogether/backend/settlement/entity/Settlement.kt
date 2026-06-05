@@ -50,6 +50,12 @@ class Settlement(
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
 
+    @Column(name = "note", length = 500)
+    val note: String? = null,
+
+    @Column(name = "rejection_reason", length = 500)
+    var rejectionReason: String? = null,
+
     @Column(name = "confirmed_at")
     var confirmedAt: Instant? = null,
 

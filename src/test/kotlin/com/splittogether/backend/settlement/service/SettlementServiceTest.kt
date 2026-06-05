@@ -36,7 +36,7 @@ class SettlementServiceTest : AbstractIntegrationTest() {
 
     private fun joinGroup(userId: Long, ownerId: Long, groupId: Long) {
         val result = groupService.createInvitation(ownerId, groupId, CreateInvitationRequest("LINK"))
-        groupService.joinGroup(userId, JoinGroupRequest(result.inviteCode!!))
+        groupService.joinGroup(userId, JoinGroupRequest(result.token!!))
     }
 
     private fun createExpense(payerId: Long, groupId: Long, amount: BigDecimal, participantIds: List<Long>) =
@@ -168,7 +168,7 @@ class SettlementServiceTest : AbstractIntegrationTest() {
         val settlement = createSettlement(payer.id, group.id, receiver.id, BigDecimal("10.00"))
         val balanceBefore = balanceService.getBalances(payer.id, group.id)
 
-        val result = settlementService.rejectSettlement(receiver.id, group.id, settlement.id)
+        val result = settlementService.rejectSettlement(receiver.id, group.id, settlement.id, null)
 
         assertEquals("REJECTED", result.status)
         assertNotNull(result.rejectedAt)
@@ -185,7 +185,7 @@ class SettlementServiceTest : AbstractIntegrationTest() {
         val settlement = createSettlement(payer.id, group.id, receiver.id, BigDecimal("10.00"))
 
         assertFailsWith<InsufficientPermissionsException> {
-            settlementService.rejectSettlement(payer.id, group.id, settlement.id)
+            settlementService.rejectSettlement(payer.id, group.id, settlement.id, null)
         }
     }
 

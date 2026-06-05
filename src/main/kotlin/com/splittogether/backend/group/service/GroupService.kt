@@ -89,14 +89,15 @@ class GroupService(
         joinedAt = joinedAt
     )
 
-    private fun GroupInvitation.toResponse(usesCount: Long) = GroupInvitationResponse(
+    private fun GroupInvitation.toResponse() = GroupInvitationResponse(
         id = id,
         type = type.code,
         status = status.code,
-        inviteCode = inviteCode,
-        invitedUserId = invitedUser?.id,
+        token = token,
+        targetUserId = targetUser?.id,
+        targetEmail = targetEmail,
         maxUses = maxUses,
-        usesCount = usesCount,
+        usedCount = usedCount,
         expiresAt = expiresAt,
         createdAt = createdAt
     )
@@ -299,20 +300,20 @@ class GroupService(
         val invitation = groupInvitationRepository.save(
             GroupInvitation(
                 group = group,
-                createdBy = creator,
+                invitedBy = creator,
                 type = invType(typeCode),
                 status = invStatus(InvitationStatus.PENDING),
-                invitedUser = invitedUser,
-                inviteCode = UUID.randomUUID().toString(),
+                targetUser = invitedUser,
+                token = UUID.randomUUID().toString(),
                 maxUses = if (typeCode == InvitationType.LINK) request.maxUses else 1,
                 expiresAt = request.expiresAt
             )
         )
 
-        // TODO: для DIRECT-приглашений нужно уведомить invitedUser (push или email)
+        // TODO: для DIRECT-приглашений нужно уведомить targetUser (push или email)
         //  чтобы он узнал о приглашении и мог принять его через /join
 
-        return invitation.toResponse(0L)
+        return invitation.toResponse()
     }
 
     @Transactional(readOnly = true)
@@ -321,9 +322,7 @@ class GroupService(
         val member = requireActiveMember(groupId, userId)
         requireAdminOrOwner(member)
 
-        return groupInvitationRepository.findPendingByGroupId(groupId).map { invitation ->
-            invitation.toResponse(invitationUseRepository.countByInvitationId(invitation.id))
-        }
+        return groupInvitationRepository.findPendingByGroupId(groupId).map { it.toResponse() }
     }
 
     @Transactional
@@ -347,7 +346,7 @@ class GroupService(
 
     @Transactional
     fun joinGroup(userId: Long, request: JoinGroupRequest): GroupResponse {
-        val invitation = groupInvitationRepository.findByInviteCode(request.inviteCode)
+        val invitation = groupInvitationRepository.findByToken(request.inviteCode)
             ?: throw InvalidInvitationException("Invalid invite code")
 
         if (invitation.status.code != InvitationStatus.PENDING)
@@ -359,12 +358,11 @@ class GroupService(
         val group = invitation.group
         requireActiveGroup(group)
 
-        if (invitation.type.code == InvitationType.DIRECT && invitation.invitedUser?.id != userId)
+        if (invitation.type.code == InvitationType.DIRECT && invitation.targetUser?.id != userId)
             throw InvalidInvitationException("This invitation is not for you")
 
-        val usesCount = invitationUseRepository.countByInvitationId(invitation.id)
         val maxUses = invitation.maxUses
-        if (maxUses != null && usesCount >= maxUses)
+        if (maxUses != null && invitation.usedCount >= maxUses)
             throw InvalidInvitationException("Invitation has reached its maximum uses")
 
         addMemberAndRecordUse(userId, invitation)
@@ -379,14 +377,14 @@ class GroupService(
 
     @Transactional(readOnly = true)
     fun getMyInvitations(userId: Long): List<IncomingInvitationResponse> =
-        groupInvitationRepository.findPendingDirectByInvitedUserId(userId, Instant.now()).map {
+        groupInvitationRepository.findPendingDirectByTargetUserId(userId, Instant.now()).map {
             IncomingInvitationResponse(
                 id = it.id,
                 groupId = it.group.id,
                 groupName = it.group.name,
                 groupCurrencyCode = it.group.currency.code,
-                invitedById = it.createdBy.id,
-                invitedByDisplayName = it.createdBy.displayName,
+                invitedById = it.invitedBy.id,
+                invitedByDisplayName = it.invitedBy.displayName,
                 expiresAt = it.expiresAt,
                 createdAt = it.createdAt
             )
@@ -399,7 +397,7 @@ class GroupService(
 
         if (invitation.type.code != InvitationType.DIRECT)
             throw InvalidInvitationException("Only direct invitations can be accepted this way")
-        if (invitation.invitedUser?.id != userId)
+        if (invitation.targetUser?.id != userId)
             throw InvalidInvitationException("This invitation is not for you")
         if (invitation.status.code != InvitationStatus.PENDING)
             throw InvalidInvitationException("Invitation is no longer pending")
@@ -421,7 +419,7 @@ class GroupService(
 
         if (invitation.type.code != InvitationType.DIRECT)
             throw InvalidInvitationException("Only direct invitations can be rejected")
-        if (invitation.invitedUser?.id != userId)
+        if (invitation.targetUser?.id != userId)
             throw InvalidInvitationException("This invitation is not for you")
         if (invitation.status.code != InvitationStatus.PENDING)
             throw InvalidInvitationException("Invitation is no longer pending")
@@ -457,5 +455,7 @@ class GroupService(
         }
 
         invitationUseRepository.save(InvitationUse(invitation = invitation, user = user))
+        invitation.usedCount += 1
+        groupInvitationRepository.save(invitation)
     }
 }

@@ -133,7 +133,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val owner = generator.user()
         val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
-        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).inviteCode!!))
+        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).token!!))
 
         assertFailsWith<InsufficientPermissionsException> {
             groupService.updateGroup(member.id, group.id, UpdateGroupRequest("Hack"))
@@ -169,7 +169,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val admin = generator.user(email = "admin@test.com")
         val group = createGroup(owner.id)
         val inv = createLinkInvitation(owner.id, group.id)
-        groupService.joinGroup(admin.id, JoinGroupRequest(inv.inviteCode!!))
+        groupService.joinGroup(admin.id, JoinGroupRequest(inv.token!!))
         groupService.updateMemberRole(owner.id, group.id, admin.id, UpdateMemberRoleRequest("ADMIN"))
 
         assertFailsWith<InsufficientPermissionsException> {
@@ -184,7 +184,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val owner = generator.user()
         val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
-        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).inviteCode!!))
+        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).token!!))
 
         val result = groupService.getMembers(owner.id, group.id)
 
@@ -198,7 +198,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val owner = generator.user()
         val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
-        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).inviteCode!!))
+        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).token!!))
 
         groupService.removeMember(member.id, group.id, member.id)
 
@@ -212,7 +212,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val owner = generator.user()
         val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
-        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).inviteCode!!))
+        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).token!!))
 
         groupService.removeMember(owner.id, group.id, member.id)
 
@@ -237,10 +237,10 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val admin2 = generator.user(email = "admin2@test.com")
         val group = createGroup(owner.id)
         val inv1 = createLinkInvitation(owner.id, group.id)
-        groupService.joinGroup(admin1.id, JoinGroupRequest(inv1.inviteCode!!))
+        groupService.joinGroup(admin1.id, JoinGroupRequest(inv1.token!!))
         groupService.updateMemberRole(owner.id, group.id, admin1.id, UpdateMemberRoleRequest("ADMIN"))
         val inv2 = createLinkInvitation(owner.id, group.id)
-        groupService.joinGroup(admin2.id, JoinGroupRequest(inv2.inviteCode!!))
+        groupService.joinGroup(admin2.id, JoinGroupRequest(inv2.token!!))
         groupService.updateMemberRole(owner.id, group.id, admin2.id, UpdateMemberRoleRequest("ADMIN"))
 
         assertFailsWith<InsufficientPermissionsException> {
@@ -255,7 +255,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val owner = generator.user()
         val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
-        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).inviteCode!!))
+        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).token!!))
 
         groupService.transferOwnership(owner.id, group.id, member.id)
 
@@ -270,10 +270,10 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         val inv1 = createLinkInvitation(owner.id, group.id)
-        groupService.joinGroup(admin.id, JoinGroupRequest(inv1.inviteCode!!))
+        groupService.joinGroup(admin.id, JoinGroupRequest(inv1.token!!))
         groupService.updateMemberRole(owner.id, group.id, admin.id, UpdateMemberRoleRequest("ADMIN"))
         val inv2 = createLinkInvitation(owner.id, group.id)
-        groupService.joinGroup(member.id, JoinGroupRequest(inv2.inviteCode!!))
+        groupService.joinGroup(member.id, JoinGroupRequest(inv2.token!!))
 
         assertFailsWith<InsufficientPermissionsException> {
             groupService.transferOwnership(admin.id, group.id, member.id)
@@ -298,7 +298,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val owner = generator.user()
         val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
-        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).inviteCode!!))
+        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).token!!))
 
         val result = groupService.updateMemberRole(owner.id, group.id, member.id, UpdateMemberRoleRequest("ADMIN"))
 
@@ -310,7 +310,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val owner = generator.user()
         val admin = generator.user(email = "admin@test.com")
         val group = createGroup(owner.id)
-        groupService.joinGroup(admin.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).inviteCode!!))
+        groupService.joinGroup(admin.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).token!!))
         groupService.updateMemberRole(owner.id, group.id, admin.id, UpdateMemberRoleRequest("ADMIN"))
 
         val result = groupService.updateMemberRole(owner.id, group.id, admin.id, UpdateMemberRoleRequest("MEMBER"))
@@ -325,10 +325,10 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         val inv1 = createLinkInvitation(owner.id, group.id)
-        groupService.joinGroup(admin.id, JoinGroupRequest(inv1.inviteCode!!))
+        groupService.joinGroup(admin.id, JoinGroupRequest(inv1.token!!))
         groupService.updateMemberRole(owner.id, group.id, admin.id, UpdateMemberRoleRequest("ADMIN"))
         val inv2 = createLinkInvitation(owner.id, group.id)
-        groupService.joinGroup(member.id, JoinGroupRequest(inv2.inviteCode!!))
+        groupService.joinGroup(member.id, JoinGroupRequest(inv2.token!!))
 
         assertFailsWith<InsufficientPermissionsException> {
             groupService.updateMemberRole(admin.id, group.id, member.id, UpdateMemberRoleRequest("ADMIN"))
@@ -346,7 +346,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
 
         assertEquals("LINK", result.type)
         assertEquals("PENDING", result.status)
-        assertNotNull(result.inviteCode)
+        assertNotNull(result.token)
     }
 
     @Test
@@ -361,8 +361,8 @@ class GroupServiceTest : AbstractIntegrationTest() {
         )
 
         assertEquals("DIRECT", result.type)
-        assertEquals(target.id, result.invitedUserId)
-        assertNotNull(result.inviteCode)
+        assertEquals(target.id, result.targetUserId)
+        assertNotNull(result.token)
     }
 
     @Test
@@ -370,7 +370,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val owner = generator.user()
         val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
-        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).inviteCode!!))
+        groupService.joinGroup(member.id, JoinGroupRequest(createLinkInvitation(owner.id, group.id).token!!))
 
         assertFailsWith<InsufficientPermissionsException> {
             groupService.createInvitation(member.id, group.id, CreateInvitationRequest("LINK"))
@@ -386,7 +386,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val group = createGroup(owner.id)
         val inv = createLinkInvitation(owner.id, group.id)
 
-        val result = groupService.joinGroup(joiner.id, JoinGroupRequest(inv.inviteCode!!))
+        val result = groupService.joinGroup(joiner.id, JoinGroupRequest(inv.token!!))
 
         assertEquals(group.id, result.id)
         val member = groupMemberRepository.findByGroupIdAndUserId(group.id, joiner.id)
@@ -401,11 +401,11 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val group = createGroup(owner.id)
         val inv1 = createLinkInvitation(owner.id, group.id)
         val joiner = generator.user(email = "joiner@test.com")
-        groupService.joinGroup(joiner.id, JoinGroupRequest(inv1.inviteCode!!))
+        groupService.joinGroup(joiner.id, JoinGroupRequest(inv1.token!!))
         val inv2 = createLinkInvitation(owner.id, group.id)
 
         assertFailsWith<AlreadyGroupMemberException> {
-            groupService.joinGroup(joiner.id, JoinGroupRequest(inv2.inviteCode!!))
+            groupService.joinGroup(joiner.id, JoinGroupRequest(inv2.token!!))
         }
     }
 
@@ -421,7 +421,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val joiner = generator.user(email = "joiner@test.com")
 
         assertFailsWith<InvalidInvitationException> {
-            groupService.joinGroup(joiner.id, JoinGroupRequest(inv.inviteCode!!))
+            groupService.joinGroup(joiner.id, JoinGroupRequest(inv.token!!))
         }
     }
 
@@ -433,10 +433,10 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val inv = groupInvitationRepository.findAll().last()
         val joiner1 = generator.user(email = "joiner1@test.com")
         val joiner2 = generator.user(email = "joiner2@test.com")
-        groupService.joinGroup(joiner1.id, JoinGroupRequest(inv.inviteCode!!))
+        groupService.joinGroup(joiner1.id, JoinGroupRequest(inv.token!!))
 
         assertFailsWith<InvalidInvitationException> {
-            groupService.joinGroup(joiner2.id, JoinGroupRequest(inv.inviteCode!!))
+            groupService.joinGroup(joiner2.id, JoinGroupRequest(inv.token!!))
         }
     }
 
@@ -450,10 +450,10 @@ class GroupServiceTest : AbstractIntegrationTest() {
             owner.id, group.id,
             CreateInvitationRequest("DIRECT", invitedUserId = target.id)
         )
-        val inv = groupInvitationRepository.findByInviteCode(result.inviteCode!!)!!
+        val inv = groupInvitationRepository.findByToken(result.token!!)!!
 
         assertFailsWith<InvalidInvitationException> {
-            groupService.joinGroup(other.id, JoinGroupRequest(inv.inviteCode!!))
+            groupService.joinGroup(other.id, JoinGroupRequest(inv.token!!))
         }
     }
 
@@ -476,7 +476,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
         val member = generator.user(email = "member@test.com")
         val group = createGroup(owner.id)
         val inv = createLinkInvitation(owner.id, group.id)
-        groupService.joinGroup(member.id, JoinGroupRequest(inv.inviteCode!!))
+        groupService.joinGroup(member.id, JoinGroupRequest(inv.token!!))
         val inv2 = createLinkInvitation(owner.id, group.id)
 
         assertFailsWith<InsufficientPermissionsException> {
