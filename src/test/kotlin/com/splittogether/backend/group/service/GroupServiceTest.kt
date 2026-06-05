@@ -498,4 +498,133 @@ class GroupServiceTest : AbstractIntegrationTest() {
         assertEquals(2, result.size)
         assertTrue(result.all { it.status == "PENDING" })
     }
+
+    // ── getMyInvitations ──────────────────────────────────────────────────────
+
+    @Test
+    fun `getMyInvitations returns pending DIRECT invitations for user`() {
+        val owner = generator.user()
+        val invited = generator.user(email = "invited@test.com")
+        val group = createGroup(owner.id)
+        groupService.createInvitation(owner.id, group.id, CreateInvitationRequest("DIRECT", invitedUserId = invited.id))
+
+        val result = groupService.getMyInvitations(invited.id)
+
+        assertEquals(1, result.size)
+        assertEquals(group.id, result[0].groupId)
+        assertEquals(owner.id, result[0].invitedById)
+    }
+
+    @Test
+    fun `getMyInvitations does not return LINK invitations`() {
+        val owner = generator.user()
+        val group = createGroup(owner.id)
+        createLinkInvitation(owner.id, group.id)
+
+        val result = groupService.getMyInvitations(owner.id)
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `getMyInvitations does not return invitations meant for other users`() {
+        val owner = generator.user()
+        val invited = generator.user(email = "invited@test.com")
+        val other = generator.user(email = "other@test.com")
+        val group = createGroup(owner.id)
+        groupService.createInvitation(owner.id, group.id, CreateInvitationRequest("DIRECT", invitedUserId = invited.id))
+
+        val result = groupService.getMyInvitations(other.id)
+
+        assertTrue(result.isEmpty())
+    }
+
+    // ── acceptInvitation ──────────────────────────────────────────────────────
+
+    @Test
+    fun `acceptInvitation adds user to group and sets status to ACCEPTED`() {
+        val owner = generator.user()
+        val invited = generator.user(email = "invited@test.com")
+        val group = createGroup(owner.id)
+        groupService.createInvitation(owner.id, group.id, CreateInvitationRequest("DIRECT", invitedUserId = invited.id))
+        val inv = groupInvitationRepository.findAll().last()
+
+        groupService.acceptInvitation(invited.id, inv.id)
+
+        val member = groupMemberRepository.findByGroupIdAndUserId(group.id, invited.id)
+        assertNotNull(member)
+        assertEquals("ACTIVE", member!!.status.code)
+        assertEquals("ACCEPTED", groupInvitationRepository.findById(inv.id).get().status.code)
+    }
+
+    @Test
+    fun `acceptInvitation throws InvalidInvitationException for wrong user`() {
+        val owner = generator.user()
+        val invited = generator.user(email = "invited@test.com")
+        val other = generator.user(email = "other@test.com")
+        val group = createGroup(owner.id)
+        groupService.createInvitation(owner.id, group.id, CreateInvitationRequest("DIRECT", invitedUserId = invited.id))
+        val inv = groupInvitationRepository.findAll().last()
+
+        assertFailsWith<InvalidInvitationException> {
+            groupService.acceptInvitation(other.id, inv.id)
+        }
+    }
+
+    @Test
+    fun `acceptInvitation throws InvalidInvitationException for expired invitation`() {
+        val owner = generator.user()
+        val invited = generator.user(email = "invited@test.com")
+        val group = createGroup(owner.id)
+        groupService.createInvitation(
+            owner.id, group.id,
+            CreateInvitationRequest("DIRECT", invitedUserId = invited.id, expiresAt = Instant.now().minus(1, ChronoUnit.HOURS))
+        )
+        val inv = groupInvitationRepository.findAll().last()
+
+        assertFailsWith<InvalidInvitationException> {
+            groupService.acceptInvitation(invited.id, inv.id)
+        }
+    }
+
+    @Test
+    fun `acceptInvitation throws InvalidInvitationException for LINK invitation`() {
+        val owner = generator.user()
+        val other = generator.user(email = "other@test.com")
+        val group = createGroup(owner.id)
+        val inv = createLinkInvitation(owner.id, group.id)
+
+        assertFailsWith<InvalidInvitationException> {
+            groupService.acceptInvitation(other.id, inv.id)
+        }
+    }
+
+    // ── rejectInvitation ──────────────────────────────────────────────────────
+
+    @Test
+    fun `rejectInvitation sets status to DECLINED`() {
+        val owner = generator.user()
+        val invited = generator.user(email = "invited@test.com")
+        val group = createGroup(owner.id)
+        groupService.createInvitation(owner.id, group.id, CreateInvitationRequest("DIRECT", invitedUserId = invited.id))
+        val inv = groupInvitationRepository.findAll().last()
+
+        groupService.rejectInvitation(invited.id, inv.id)
+
+        assertEquals("DECLINED", groupInvitationRepository.findById(inv.id).get().status.code)
+    }
+
+    @Test
+    fun `rejectInvitation throws InvalidInvitationException for wrong user`() {
+        val owner = generator.user()
+        val invited = generator.user(email = "invited@test.com")
+        val other = generator.user(email = "other@test.com")
+        val group = createGroup(owner.id)
+        groupService.createInvitation(owner.id, group.id, CreateInvitationRequest("DIRECT", invitedUserId = invited.id))
+        val inv = groupInvitationRepository.findAll().last()
+
+        assertFailsWith<InvalidInvitationException> {
+            groupService.rejectInvitation(other.id, inv.id)
+        }
+    }
 }

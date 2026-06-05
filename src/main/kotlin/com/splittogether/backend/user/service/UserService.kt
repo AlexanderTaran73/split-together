@@ -3,6 +3,7 @@ package com.splittogether.backend.user.service
 import com.splittogether.backend.balance.service.BalanceService
 import com.splittogether.backend.common.exception.UserNotFoundException
 import com.splittogether.backend.group.dto.GroupResponse
+import com.splittogether.backend.group.dto.IncomingInvitationResponse
 import com.splittogether.backend.group.service.GroupService
 import com.splittogether.backend.user.dto.UpdateProfileRequest
 import com.splittogether.backend.user.dto.UserBalanceResponse
@@ -44,6 +45,10 @@ class UserService(
     @Transactional(readOnly = true)
     fun getMyBalance(userId: Long): UserBalanceResponse =
         balanceService.getUserBalance(userId)
+
+    @Transactional(readOnly = true)
+    fun getMyInvitations(userId: Long): List<IncomingInvitationResponse> =
+        groupService.getMyInvitations(userId)
 
     private fun User.toResponse() = UserResponse(
         id = id,
