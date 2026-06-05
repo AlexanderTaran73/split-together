@@ -98,7 +98,8 @@ class BalanceService(
     @Transactional
     fun simplifyBalances(userId: Long, groupId: Long): List<BalanceEntryResponse> {
         if (!groupRepository.existsById(groupId)) throw GroupNotFoundException("Group not found")
-        membershipGuard.requireActiveMember(groupId, userId)
+        val member = membershipGuard.requireActiveMember(groupId, userId)
+        membershipGuard.requireAdminOrOwner(member)
 
         val balances = balanceRepository.findByGroupId(groupId)
         if (balances.isEmpty()) return emptyList()

@@ -50,10 +50,8 @@ class GroupService(
     private fun requireActiveMember(groupId: Long, userId: Long): GroupMember =
         membershipGuard.requireActiveMember(groupId, userId)
 
-    private fun requireAdminOrOwner(member: GroupMember) {
-        if (member.role.code == GroupRole.MEMBER)
-            throw InsufficientPermissionsException("Admin or Owner role required")
-    }
+    private fun requireAdminOrOwner(member: GroupMember) =
+        membershipGuard.requireAdminOrOwner(member)
 
     private fun requireOwner(member: GroupMember) {
         if (member.role.code != GroupRole.OWNER)
