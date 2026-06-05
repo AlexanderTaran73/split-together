@@ -1,5 +1,6 @@
 package com.splittogether.backend.group.service
 
+import com.splittogether.backend.balance.service.BalanceService
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.common.repository.CurrencyRepository
 import com.splittogether.backend.group.dto.*
@@ -23,7 +24,8 @@ class GroupService(
     private val groupStatusRepository: GroupStatusRepository,
     private val membershipStatusRepository: MembershipStatusRepository,
     private val invitationTypeRepository: InvitationTypeRepository,
-    private val invitationStatusRepository: InvitationStatusRepository
+    private val invitationStatusRepository: InvitationStatusRepository,
+    private val balanceService: BalanceService
 ) {
 
     private fun groupRole(code: String): GroupRole =
@@ -61,7 +63,7 @@ class GroupService(
             throw GroupArchivedException("Group is archived")
     }
 
-    private fun Group.toResponse(): GroupResponse = GroupResponse(
+    private fun Group.toResponse(userId: Long): GroupResponse = GroupResponse(
         id = id,
         name = name,
         description = description,
@@ -70,7 +72,11 @@ class GroupService(
         ownerId = owner.id,
         ownerDisplayName = owner.displayName,
         memberCount = groupMemberRepository.countActiveMembersByGroupId(id),
-        createdAt = createdAt
+        currentUserRole = groupMemberRepository.findByGroupIdAndUserId(id, userId)?.role?.code ?: "",
+        currentUserBalance = balanceService.getNetBalance(userId, id),
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        archivedAt = archivedAt
     )
 
     private fun GroupMember.toResponse() = GroupMemberResponse(
@@ -120,19 +126,19 @@ class GroupService(
             )
         )
 
-        return group.toResponse()
+        return group.toResponse(userId)
     }
 
     @Transactional(readOnly = true)
     fun getGroup(userId: Long, groupId: Long): GroupResponse {
         val group = groupRepository.findById(groupId).orElseThrow { GroupNotFoundException("Group not found") }
         requireActiveMember(groupId, userId)
-        return group.toResponse()
+        return group.toResponse(userId)
     }
 
     @Transactional(readOnly = true)
     fun getMyGroups(userId: Long): List<GroupResponse> =
-        groupMemberRepository.findActiveByUserId(userId).map { it.group.toResponse() }
+        groupMemberRepository.findActiveByUserId(userId).map { it.group.toResponse(userId) }
 
     @Transactional
     fun updateGroup(userId: Long, groupId: Long, request: UpdateGroupRequest): GroupResponse {
@@ -143,7 +149,7 @@ class GroupService(
 
         group.name = request.name
         group.description = request.description
-        return groupRepository.save(group).toResponse()
+        return groupRepository.save(group).toResponse(userId)
     }
 
     @Transactional
@@ -154,6 +160,7 @@ class GroupService(
         requireOwner(member)
 
         group.status = groupStatus(GroupStatus.ARCHIVED)
+        group.archivedAt = Instant.now()
         groupRepository.save(group)
     }
 
@@ -362,6 +369,6 @@ class GroupService(
             groupInvitationRepository.save(invitation)
         }
 
-        return group.toResponse()
+        return group.toResponse(userId)
     }
 }

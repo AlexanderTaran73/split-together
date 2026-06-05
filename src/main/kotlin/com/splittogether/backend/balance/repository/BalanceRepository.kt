@@ -16,6 +16,12 @@ interface BalanceRepository : JpaRepository<Balance, Long> {
     @Query("SELECT SUM(b.amount) FROM Balance b WHERE b.debtor.id = :userId")
     fun sumAmountByDebtorId(userId: Long): BigDecimal?
 
+    @Query("SELECT SUM(b.amount) FROM Balance b WHERE b.creditor.id = :userId AND b.group.id = :groupId")
+    fun sumOwedInGroup(userId: Long, groupId: Long): BigDecimal?
+
+    @Query("SELECT SUM(b.amount) FROM Balance b WHERE b.debtor.id = :userId AND b.group.id = :groupId")
+    fun sumOwingInGroup(userId: Long, groupId: Long): BigDecimal?
+
     @Modifying
     @Query("DELETE FROM Balance b WHERE b.group.id = :groupId AND b.debtor.id = :debtorId AND b.creditor.id = :creditorId")
     fun deleteByGroupIdAndDebtorIdAndCreditorId(groupId: Long, debtorId: Long, creditorId: Long)
