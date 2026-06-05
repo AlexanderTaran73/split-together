@@ -28,7 +28,8 @@ class GroupService(
     private val invitationTypeRepository: InvitationTypeRepository,
     private val invitationStatusRepository: InvitationStatusRepository,
     private val balanceService: BalanceService,
-    private val expenseService: ExpenseService
+    private val expenseService: ExpenseService,
+    private val membershipGuard: MembershipGuard
 ) {
 
     private fun groupRole(code: String): GroupRole =
@@ -47,9 +48,7 @@ class GroupService(
         invitationStatusRepository.findByCode(code) ?: error("Missing reference data: invitation_status=$code")
 
     private fun requireActiveMember(groupId: Long, userId: Long): GroupMember =
-        groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
-            ?.takeIf { it.status.code == MembershipStatus.ACTIVE }
-            ?: throw NotGroupMemberException("You are not a member of this group")
+        membershipGuard.requireActiveMember(groupId, userId)
 
     private fun requireAdminOrOwner(member: GroupMember) {
         if (member.role.code == GroupRole.MEMBER)

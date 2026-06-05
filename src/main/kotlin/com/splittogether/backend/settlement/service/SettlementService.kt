@@ -4,9 +4,8 @@ import com.splittogether.backend.balance.service.BalanceService
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.common.repository.CurrencyRepository
 import com.splittogether.backend.group.entity.GroupStatus
-import com.splittogether.backend.group.entity.MembershipStatus
-import com.splittogether.backend.group.repository.GroupMemberRepository
 import com.splittogether.backend.group.repository.GroupRepository
+import com.splittogether.backend.group.service.MembershipGuard
 import com.splittogether.backend.settlement.dto.CreateSettlementRequest
 import com.splittogether.backend.settlement.dto.SettlementResponse
 import com.splittogether.backend.settlement.entity.Settlement
@@ -23,16 +22,14 @@ class SettlementService(
     private val settlementRepository: SettlementRepository,
     private val settlementStatusRepository: SettlementStatusRepository,
     private val groupRepository: GroupRepository,
-    private val groupMemberRepository: GroupMemberRepository,
+    private val membershipGuard: MembershipGuard,
     private val userRepository: UserRepository,
     private val currencyRepository: CurrencyRepository,
     private val balanceService: BalanceService
 ) {
 
     private fun requireActiveMember(groupId: Long, userId: Long) =
-        groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
-            ?.takeIf { it.status.code == MembershipStatus.ACTIVE }
-            ?: throw NotGroupMemberException("You are not a member of this group")
+        membershipGuard.requireActiveMember(groupId, userId)
 
     private fun Settlement.toResponse() = SettlementResponse(
         id = id,

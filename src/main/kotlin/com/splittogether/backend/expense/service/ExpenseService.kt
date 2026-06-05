@@ -10,9 +10,8 @@ import com.splittogether.backend.expense.entity.SplitMethod
 import com.splittogether.backend.expense.repository.*
 import com.splittogether.backend.group.entity.GroupRole
 import com.splittogether.backend.group.entity.GroupStatus
-import com.splittogether.backend.group.entity.MembershipStatus
-import com.splittogether.backend.group.repository.GroupMemberRepository
 import com.splittogether.backend.group.repository.GroupRepository
+import com.splittogether.backend.group.service.MembershipGuard
 import com.splittogether.backend.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -27,7 +26,7 @@ class ExpenseService(
     private val splitMethodRepository: SplitMethodRepository,
     private val expenseCategoryRepository: ExpenseCategoryRepository,
     private val groupRepository: GroupRepository,
-    private val groupMemberRepository: GroupMemberRepository,
+    private val membershipGuard: MembershipGuard,
     private val userRepository: UserRepository,
     private val currencyRepository: CurrencyRepository,
     private val balanceService: BalanceService
@@ -42,9 +41,7 @@ class ExpenseService(
         expenseRepository.countActiveByGroupIds(groupIds).associate { it.groupId to it.count }
 
     private fun requireActiveMember(groupId: Long, userId: Long) =
-        groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
-            ?.takeIf { it.status.code == MembershipStatus.ACTIVE }
-            ?: throw NotGroupMemberException("You are not a member of this group")
+        membershipGuard.requireActiveMember(groupId, userId)
 
     private fun Expense.toResponse(participants: List<ExpenseParticipant>) = ExpenseResponse(
         id = id,
