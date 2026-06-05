@@ -190,4 +190,16 @@ class BalanceService(
         val owing = balanceRepository.sumOwingInGroup(userId, groupId) ?: BigDecimal.ZERO
         return owed - owing
     }
+
+    @Transactional(readOnly = true)
+    fun getNetBalancesForUserInGroups(userId: Long, groupIds: List<Long>): Map<Long, BigDecimal> {
+        if (groupIds.isEmpty()) return emptyMap()
+        val owed = balanceRepository.sumOwedInGroups(userId, groupIds)
+            .associate { it.groupId to (it.total ?: BigDecimal.ZERO) }
+        val owing = balanceRepository.sumOwingInGroups(userId, groupIds)
+            .associate { it.groupId to (it.total ?: BigDecimal.ZERO) }
+        return (owed.keys + owing.keys).associateWith { groupId ->
+            (owed[groupId] ?: BigDecimal.ZERO).subtract(owing[groupId] ?: BigDecimal.ZERO)
+        }
+    }
 }

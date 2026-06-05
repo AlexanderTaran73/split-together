@@ -10,6 +10,7 @@ import com.splittogether.backend.group.repository.*
 import com.splittogether.backend.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
 
@@ -140,8 +141,36 @@ class GroupService(
     }
 
     @Transactional(readOnly = true)
-    fun getMyGroups(userId: Long): List<GroupResponse> =
-        groupMemberRepository.findActiveByUserId(userId).map { it.group.toResponse(userId) }
+    fun getMyGroups(userId: Long): List<GroupResponse> {
+        val memberships = groupMemberRepository.findActiveByUserId(userId)
+        if (memberships.isEmpty()) return emptyList()
+
+        val groupIds = memberships.map { it.group.id }
+        val memberCounts = groupMemberRepository.countActiveMembersByGroupIds(groupIds)
+            .associate { it.groupId to it.count }
+        val expenseCounts = expenseService.countActiveByGroupIds(groupIds)
+        val netBalances = balanceService.getNetBalancesForUserInGroups(userId, groupIds)
+
+        return memberships.map { membership ->
+            val group = membership.group
+            GroupResponse(
+                id = group.id,
+                name = group.name,
+                description = group.description,
+                currencyCode = group.currency.code,
+                status = group.status.code,
+                ownerId = group.owner.id,
+                ownerDisplayName = group.owner.displayName,
+                memberCount = memberCounts[group.id] ?: 0L,
+                expenseCount = expenseCounts[group.id] ?: 0L,
+                currentUserRole = membership.role.code,
+                currentUserBalance = netBalances[group.id] ?: BigDecimal.ZERO,
+                createdAt = group.createdAt,
+                updatedAt = group.updatedAt,
+                archivedAt = group.archivedAt
+            )
+        }
+    }
 
     @Transactional
     fun updateGroup(userId: Long, groupId: Long, request: UpdateGroupRequest): GroupResponse {

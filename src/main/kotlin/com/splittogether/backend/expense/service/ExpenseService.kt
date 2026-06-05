@@ -37,6 +37,10 @@ class ExpenseService(
     fun countActiveByGroupId(groupId: Long): Long =
         expenseRepository.countActiveByGroupId(groupId)
 
+    @Transactional(readOnly = true)
+    fun countActiveByGroupIds(groupIds: List<Long>): Map<Long, Long> =
+        expenseRepository.countActiveByGroupIds(groupIds).associate { it.groupId to it.count }
+
     private fun requireActiveMember(groupId: Long, userId: Long) =
         groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
             ?.takeIf { it.status.code == MembershipStatus.ACTIVE }
@@ -69,8 +73,13 @@ class ExpenseService(
     fun getExpenses(userId: Long, groupId: Long): List<ExpenseResponse> {
         if (!groupRepository.existsById(groupId)) throw GroupNotFoundException("Group not found")
         requireActiveMember(groupId, userId)
-        return expenseRepository.findActiveByGroupId(groupId).map { expense ->
-            expense.toResponse(expenseParticipantRepository.findByExpenseId(expense.id))
+        val expenses = expenseRepository.findActiveByGroupId(groupId)
+        if (expenses.isEmpty()) return emptyList()
+        val participantsByExpense = expenseParticipantRepository
+            .findByExpenseIdIn(expenses.map { it.id })
+            .groupBy { it.expense.id }
+        return expenses.map { expense ->
+            expense.toResponse(participantsByExpense[expense.id] ?: emptyList())
         }
     }
 
