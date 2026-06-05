@@ -1,6 +1,7 @@
 package com.splittogether.backend.group.service
 
 import com.splittogether.backend.balance.service.BalanceService
+import com.splittogether.backend.expense.service.ExpenseService
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.common.repository.CurrencyRepository
 import com.splittogether.backend.group.dto.*
@@ -25,7 +26,8 @@ class GroupService(
     private val membershipStatusRepository: MembershipStatusRepository,
     private val invitationTypeRepository: InvitationTypeRepository,
     private val invitationStatusRepository: InvitationStatusRepository,
-    private val balanceService: BalanceService
+    private val balanceService: BalanceService,
+    private val expenseService: ExpenseService
 ) {
 
     private fun groupRole(code: String): GroupRole =
@@ -72,6 +74,7 @@ class GroupService(
         ownerId = owner.id,
         ownerDisplayName = owner.displayName,
         memberCount = groupMemberRepository.countActiveMembersByGroupId(id),
+        expenseCount = expenseService.countActiveByGroupId(id),
         currentUserRole = groupMemberRepository.findByGroupIdAndUserId(id, userId)?.role?.code ?: "",
         currentUserBalance = balanceService.getNetBalance(userId, id),
         createdAt = createdAt,

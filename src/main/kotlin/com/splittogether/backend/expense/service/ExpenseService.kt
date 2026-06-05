@@ -33,6 +33,10 @@ class ExpenseService(
     private val balanceService: BalanceService
 ) {
 
+    @Transactional(readOnly = true)
+    fun countActiveByGroupId(groupId: Long): Long =
+        expenseRepository.countActiveByGroupId(groupId)
+
     private fun requireActiveMember(groupId: Long, userId: Long) =
         groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
             ?.takeIf { it.status.code == MembershipStatus.ACTIVE }

@@ -12,6 +12,7 @@ data class GroupResponse(
     val ownerId: Long,
     val ownerDisplayName: String,
     val memberCount: Long,
+    val expenseCount: Long,
     val currentUserRole: String,
     val currentUserBalance: BigDecimal,
     val createdAt: Instant,
