@@ -26,8 +26,7 @@ email:
 
 auth:
   jwt:
-    # TODO: load secret from environment variable before going to production
-    secret: "tempMTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI"
+    secret: ${JWT_SECRET:tempMTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI}
     access-token-expiry: 900000      # 15 minutes in ms
     refresh-token-expiry-days: 30
   verification:
