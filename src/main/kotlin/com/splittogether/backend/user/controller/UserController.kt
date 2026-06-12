@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.multipart.MultipartFile
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -50,6 +51,19 @@ class UserController(private val userService: UserService) {
         @Valid @RequestBody request: UpdateProfileRequest
     ): ResponseEntity<UserResponse> =
         ResponseEntity.ok(userService.updateMe(user.userId, request))
+
+    @PutMapping("/me/avatar", consumes = ["multipart/form-data"])
+    fun updateAvatar(
+        @AuthenticationPrincipal user: AppUserDetails,
+        @RequestParam("file") file: MultipartFile
+    ): ResponseEntity<UserResponse> =
+        ResponseEntity.ok(userService.updateAvatar(user.userId, file))
+
+    @DeleteMapping("/me/avatar")
+    fun deleteAvatar(@AuthenticationPrincipal user: AppUserDetails): ResponseEntity<Void> {
+        userService.deleteAvatar(user.userId)
+        return ResponseEntity.noContent().build()
+    }
 
     @GetMapping("/me/privacy")
     fun getPrivacy(@AuthenticationPrincipal user: AppUserDetails): ResponseEntity<UserPrivacyResponse> =

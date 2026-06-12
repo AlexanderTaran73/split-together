@@ -11,6 +11,7 @@ import com.splittogether.backend.friendship.entity.Friendship
 import com.splittogether.backend.friendship.entity.FriendshipStatus
 import com.splittogether.backend.friendship.repository.FriendshipRepository
 import com.splittogether.backend.friendship.repository.FriendshipStatusRepository
+import com.splittogether.backend.storage.service.AvatarUrlResolver
 import com.splittogether.backend.user.entity.User
 import com.splittogether.backend.user.repository.UserRepository
 import org.springframework.stereotype.Service
@@ -21,7 +22,8 @@ import java.time.Instant
 class FriendshipService(
     private val friendshipRepository: FriendshipRepository,
     private val friendshipStatusRepository: FriendshipStatusRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val avatarUrlResolver: AvatarUrlResolver
 ) {
 
     private fun status(code: String): FriendshipStatus =
@@ -166,7 +168,7 @@ class FriendshipService(
         return FriendResponse(
             userId = other.id,
             displayName = other.displayName,
-            avatarUrl = other.avatarUrl,
+            avatarUrl = avatarUrlResolver.resolve(other.avatarObjectKey),
             friendsSince = respondedAt
         )
     }
@@ -177,7 +179,7 @@ class FriendshipService(
             id = id,
             userId = other.id,
             displayName = other.displayName,
-            avatarUrl = other.avatarUrl,
+            avatarUrl = avatarUrlResolver.resolve(other.avatarObjectKey),
             status = status.code,
             createdAt = createdAt
         )

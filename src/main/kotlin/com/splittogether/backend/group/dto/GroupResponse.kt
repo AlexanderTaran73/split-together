@@ -7,6 +7,7 @@ data class GroupResponse(
     val id: Long,
     val name: String,
     val description: String?,
+    val avatarUrl: String?,
     val currencyCode: String,
     val status: String,
     val ownerId: Long,

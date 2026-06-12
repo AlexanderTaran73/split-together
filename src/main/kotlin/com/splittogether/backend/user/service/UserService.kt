@@ -14,11 +14,17 @@ import com.splittogether.backend.user.dto.UserPrivacyResponse
 import com.splittogether.backend.user.dto.UserResponse
 import com.splittogether.backend.user.entity.SearchVisibility
 import com.splittogether.backend.user.entity.User
+import com.splittogether.backend.storage.FileConstraints
+import com.splittogether.backend.storage.service.AvatarUrlResolver
+import com.splittogether.backend.storage.service.FileValidator
+import com.splittogether.backend.storage.service.StorageService
 import com.splittogether.backend.user.repository.GroupInvitePolicyRepository
 import com.splittogether.backend.user.repository.SearchVisibilityRepository
 import com.splittogether.backend.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.multipart.MultipartFile
+import java.util.UUID
 
 @Service
 class UserService(
@@ -27,7 +33,10 @@ class UserService(
     private val balanceService: BalanceService,
     private val friendshipService: FriendshipService,
     private val searchVisibilityRepository: SearchVisibilityRepository,
-    private val groupInvitePolicyRepository: GroupInvitePolicyRepository
+    private val groupInvitePolicyRepository: GroupInvitePolicyRepository,
+    private val storageService: StorageService,
+    private val fileValidator: FileValidator,
+    private val avatarUrlResolver: AvatarUrlResolver
 ) {
 
     @Transactional(readOnly = true)
@@ -51,6 +60,25 @@ class UserService(
             .orElseThrow { UserNotFoundException("User not found") }
         user.displayName = request.displayName
         return userRepository.save(user).toResponse()
+    }
+
+    @Transactional
+    fun updateAvatar(userId: Long, file: MultipartFile): UserResponse {
+        val user = userRepository.findById(userId)
+            .orElseThrow { UserNotFoundException("User not found") }
+        fileValidator.validate(file, FileConstraints.AVATAR_MAX_BYTES) { it.startsWith("image/") }
+        val key = "avatars/users/$userId/${UUID.randomUUID()}"
+        storageService.upload(key, file.bytes, file.contentType)
+        user.avatarObjectKey = key
+        return userRepository.save(user).toResponse()
+    }
+
+    @Transactional
+    fun deleteAvatar(userId: Long) {
+        val user = userRepository.findById(userId)
+            .orElseThrow { UserNotFoundException("User not found") }
+        user.avatarObjectKey = null
+        userRepository.save(user)
     }
 
     @Transactional(readOnly = true)
@@ -93,7 +121,7 @@ class UserService(
         id = id,
         email = email,
         displayName = displayName,
-        avatarUrl = avatarUrl,
+        avatarUrl = avatarUrlResolver.resolve(avatarObjectKey),
         createdAt = createdAt
     )
 

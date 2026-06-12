@@ -79,3 +79,15 @@ class CannotInviteUserException(message: String) :
 
 class InvalidPrivacySettingException(message: String) :
     BaseException(message, HttpStatus.BAD_REQUEST)
+
+class InvalidFileException(message: String) :
+    BaseException(message, HttpStatus.BAD_REQUEST)
+
+class FileTooLargeException(message: String) :
+    BaseException(message, HttpStatus.PAYLOAD_TOO_LARGE)
+
+class UnsupportedFileTypeException(message: String) :
+    BaseException(message, HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+
+class StoredFileNotFoundException(message: String) :
+    BaseException(message, HttpStatus.NOT_FOUND)

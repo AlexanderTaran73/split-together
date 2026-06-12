@@ -21,8 +21,8 @@ class User(
     @Column(name = "display_name", nullable = false)
     var displayName: String,
 
-    @Column(name = "avatar_url")
-    var avatarUrl: String? = null,
+    @Column(name = "avatar_object_key")
+    var avatarObjectKey: String? = null,
 
     @Column(name = "email_verified_at")
     var emailVerifiedAt: Instant? = null,

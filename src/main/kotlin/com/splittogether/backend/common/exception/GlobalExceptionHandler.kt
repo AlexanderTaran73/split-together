@@ -1,10 +1,12 @@
 package com.splittogether.backend.common.exception
 
 import jakarta.validation.ConstraintViolationException
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.multipart.MaxUploadSizeExceededException
 import java.time.Instant
 
 @RestControllerAdvice
@@ -26,6 +28,11 @@ class GlobalExceptionHandler {
         val message = ex.constraintViolations.joinToString("; ") { it.message }
         return ResponseEntity.badRequest().body(ErrorResponse(400, message))
     }
+
+    @ExceptionHandler(MaxUploadSizeExceededException::class)
+    fun handleMaxUpload(ex: MaxUploadSizeExceededException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+            .body(ErrorResponse(413, "Uploaded file is too large"))
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpected(ex: Exception): ResponseEntity<ErrorResponse> =

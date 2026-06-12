@@ -8,10 +8,15 @@ import com.splittogether.backend.friendship.service.FriendshipService
 import com.splittogether.backend.group.dto.*
 import com.splittogether.backend.group.entity.*
 import com.splittogether.backend.group.repository.*
+import com.splittogether.backend.storage.FileConstraints
+import com.splittogether.backend.storage.service.AvatarUrlResolver
+import com.splittogether.backend.storage.service.FileValidator
+import com.splittogether.backend.storage.service.StorageService
 import com.splittogether.backend.user.entity.GroupInvitePolicy
 import com.splittogether.backend.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.multipart.MultipartFile
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
@@ -32,7 +37,10 @@ class GroupService(
     private val balanceService: BalanceService,
     private val expenseService: ExpenseService,
     private val membershipGuard: MembershipGuard,
-    private val friendshipService: FriendshipService
+    private val friendshipService: FriendshipService,
+    private val storageService: StorageService,
+    private val fileValidator: FileValidator,
+    private val avatarUrlResolver: AvatarUrlResolver
 ) {
 
     private fun groupRole(code: String): GroupRole =
@@ -83,6 +91,7 @@ class GroupService(
         id = id,
         name = name,
         description = description,
+        avatarUrl = avatarUrlResolver.resolve(avatarObjectKey),
         currencyCode = currency.code,
         status = status.code,
         ownerId = owner.id,
@@ -100,7 +109,7 @@ class GroupService(
         id = id,
         userId = user.id,
         displayName = user.displayName,
-        avatarUrl = user.avatarUrl,
+        avatarUrl = avatarUrlResolver.resolve(user.avatarObjectKey),
         role = role.code,
         joinedAt = joinedAt
     )
@@ -171,6 +180,7 @@ class GroupService(
                 id = group.id,
                 name = group.name,
                 description = group.description,
+                avatarUrl = avatarUrlResolver.resolve(group.avatarObjectKey),
                 currencyCode = group.currency.code,
                 status = group.status.code,
                 ownerId = group.owner.id,
@@ -196,6 +206,31 @@ class GroupService(
         group.name = request.name
         group.description = request.description
         return groupRepository.save(group).toResponse(userId)
+    }
+
+    @Transactional
+    fun updateAvatar(userId: Long, groupId: Long, file: MultipartFile): GroupResponse {
+        val group = groupRepository.findById(groupId).orElseThrow { GroupNotFoundException("Group not found") }
+        val member = requireActiveMember(groupId, userId)
+        requireActiveGroup(group)
+        requireAdminOrOwner(member)
+
+        fileValidator.validate(file, FileConstraints.AVATAR_MAX_BYTES) { it.startsWith("image/") }
+        val key = "avatars/groups/$groupId/${UUID.randomUUID()}"
+        storageService.upload(key, file.bytes, file.contentType)
+        group.avatarObjectKey = key
+        return groupRepository.save(group).toResponse(userId)
+    }
+
+    @Transactional
+    fun deleteAvatar(userId: Long, groupId: Long) {
+        val group = groupRepository.findById(groupId).orElseThrow { GroupNotFoundException("Group not found") }
+        val member = requireActiveMember(groupId, userId)
+        requireActiveGroup(group)
+        requireAdminOrOwner(member)
+
+        group.avatarObjectKey = null
+        groupRepository.save(group)
     }
 
     @Transactional
