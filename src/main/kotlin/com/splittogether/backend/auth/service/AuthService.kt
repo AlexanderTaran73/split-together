@@ -5,6 +5,7 @@ import com.splittogether.backend.auth.dto.*
 import com.splittogether.backend.auth.entity.EmailVerification
 import com.splittogether.backend.auth.entity.RefreshToken
 import com.splittogether.backend.auth.event.EmailChangeRequestedEvent
+import com.splittogether.backend.auth.event.PasswordResetRequestedEvent
 import com.splittogether.backend.auth.event.UserRegisteredEvent
 import com.splittogether.backend.auth.repository.EmailVerificationRepository
 import com.splittogether.backend.auth.repository.RefreshTokenRepository
@@ -149,6 +150,32 @@ class AuthService(
         }
         val code = saveVerificationCode(user, EmailVerificationPurpose.REGISTRATION)
         eventPublisher.publishEvent(UserRegisteredEvent(user.email, code))
+    }
+
+    @Transactional
+    fun requestPasswordReset(request: PasswordResetRequest) {
+        val user = userRepository.findByEmail(request.email) ?: return
+
+        val code = saveVerificationCode(user, EmailVerificationPurpose.PASSWORD_RESET)
+        eventPublisher.publishEvent(PasswordResetRequestedEvent(user.email, code))
+    }
+
+    @Transactional
+    fun confirmPasswordReset(request: PasswordResetConfirmRequest) {
+        val user = userRepository.findByEmail(request.email)
+            ?: throw InvalidVerificationCodeException("Invalid verification code")
+
+        val verification = emailVerificationRepository.findLatestUnused(user, EmailVerificationPurpose.PASSWORD_RESET)
+            ?: throw InvalidVerificationCodeException("No pending password reset found")
+
+        if (verification.expiresAt.isBefore(Instant.now()))
+            throw InvalidVerificationCodeException("Verification code expired")
+        if (verification.code != request.code)
+            throw InvalidVerificationCodeException("Invalid verification code")
+
+        verification.usedAt = Instant.now()
+        user.passwordHash = passwordEncoder.encode(request.newPassword)!!
+        refreshTokenRepository.revokeAllActiveByUser(user, Instant.now())
     }
 
     private fun saveVerificationCode(user: User, purposeCode: String, newEmail: String? = null): String {

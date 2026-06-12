@@ -215,4 +215,77 @@ class AuthControllerTest : AbstractIntegrationTest() {
         mockMvc.perform(post("/api/v1/auth/logout"))
             .andExpect(status().isUnauthorized)
     }
+
+    // ── POST /password-reset/request ──────────────────────────────────────────
+
+    @Test
+    fun `password-reset request returns 200 for an existing user`() {
+        generator.user(email = "user@test.com")
+
+        mockMvc.perform(
+            post("/api/v1/auth/password-reset/request")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"user@test.com"}""")
+        ).andExpect(status().isOk)
+    }
+
+    @Test
+    fun `password-reset request returns 200 for an unknown email without revealing it`() {
+        mockMvc.perform(
+            post("/api/v1/auth/password-reset/request")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"nobody@test.com"}""")
+        ).andExpect(status().isOk)
+    }
+
+    @Test
+    fun `password-reset request returns 400 for an invalid email`() {
+        mockMvc.perform(
+            post("/api/v1/auth/password-reset/request")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"not-an-email"}""")
+        ).andExpect(status().isBadRequest)
+    }
+
+    // ── POST /password-reset/confirm ──────────────────────────────────────────
+
+    @Test
+    fun `password-reset confirm returns 200 for a valid code`() {
+        generator.user(email = "user@test.com")
+        authService.requestPasswordReset(PasswordResetRequest("user@test.com"))
+        val user = userRepository.findByEmail("user@test.com")!!
+        val code = emailVerificationRepository.findLatestUnused(user, "PASSWORD_RESET")!!.code
+
+        mockMvc.perform(
+            post("/api/v1/auth/password-reset/confirm")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"user@test.com","code":"$code","newPassword":"NewPassword1!"}""")
+        ).andExpect(status().isOk)
+    }
+
+    @Test
+    fun `password-reset confirm returns 400 for a wrong code`() {
+        generator.user(email = "user@test.com")
+        authService.requestPasswordReset(PasswordResetRequest("user@test.com"))
+
+        mockMvc.perform(
+            post("/api/v1/auth/password-reset/confirm")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"user@test.com","code":"999999","newPassword":"NewPassword1!"}""")
+        ).andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `password-reset confirm returns 400 for a password shorter than 8 characters`() {
+        generator.user(email = "user@test.com")
+        authService.requestPasswordReset(PasswordResetRequest("user@test.com"))
+        val user = userRepository.findByEmail("user@test.com")!!
+        val code = emailVerificationRepository.findLatestUnused(user, "PASSWORD_RESET")!!.code
+
+        mockMvc.perform(
+            post("/api/v1/auth/password-reset/confirm")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"user@test.com","code":"$code","newPassword":"short"}""")
+        ).andExpect(status().isBadRequest)
+    }
 }
