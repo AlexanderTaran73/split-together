@@ -63,4 +63,16 @@ class AuthController(private val authService: AuthService) {
         authService.confirmEmailChange(user.userId, request.code)
         return ResponseEntity.ok().build()
     }
+
+    @PostMapping("/password-reset/request")
+    fun requestPasswordReset(@Valid @RequestBody request: PasswordResetRequest): ResponseEntity<Void> {
+        authService.requestPasswordReset(request)
+        return ResponseEntity.ok().build()
+    }
+
+    @PostMapping("/password-reset/confirm")
+    fun confirmPasswordReset(@Valid @RequestBody request: PasswordResetConfirmRequest): ResponseEntity<Void> {
+        authService.confirmPasswordReset(request)
+        return ResponseEntity.ok().build()
+    }
 }

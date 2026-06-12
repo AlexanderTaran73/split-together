@@ -1,6 +1,7 @@
 package com.splittogether.backend.auth.listener
 
 import com.splittogether.backend.auth.event.EmailChangeRequestedEvent
+import com.splittogether.backend.auth.event.PasswordResetRequestedEvent
 import com.splittogether.backend.auth.event.UserRegisteredEvent
 import com.splittogether.backend.email.service.EmailService
 import org.slf4j.LoggerFactory
@@ -38,6 +39,20 @@ class AuthEventListener(private val emailService: EmailService) {
             }
         } catch (e: Exception) {
             log.error("Failed to send email-change email to '{}': {}", event.newEmail, e.message, e)
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    fun onPasswordResetRequested(event: PasswordResetRequestedEvent) {
+        try {
+            emailService.send {
+                to(event.email)
+                subject("Password Reset Code — SplitTogether")
+                template("verification-code")
+                variable("code", event.code)
+            }
+        } catch (e: Exception) {
+            log.error("Failed to send password-reset email to '{}': {}", event.email, e.message, e)
         }
     }
 }
