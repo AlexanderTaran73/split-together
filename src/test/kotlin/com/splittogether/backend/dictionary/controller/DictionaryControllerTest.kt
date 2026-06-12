@@ -77,4 +77,24 @@ class DictionaryControllerTest : AbstractIntegrationTest() {
         mockMvc.perform(get("/api/v1/dictionaries/split-methods"))
             .andExpect(status().isUnauthorized)
     }
+
+    // ── GET /friendship-statuses ──────────────────────────────────────────────
+
+    @Test
+    fun `GET friendship-statuses returns 200 with all statuses`() {
+        mockMvc.perform(
+            get("/api/v1/dictionaries/friendship-statuses")
+                .header("Authorization", "Bearer ${token()}")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[?(@.code == 'PENDING')]").exists())
+            .andExpect(jsonPath("$[?(@.code == 'ACCEPTED')]").exists())
+            .andExpect(jsonPath("$[?(@.code == 'BLOCKED')]").exists())
+    }
+
+    @Test
+    fun `GET friendship-statuses returns 401 without token`() {
+        mockMvc.perform(get("/api/v1/dictionaries/friendship-statuses"))
+            .andExpect(status().isUnauthorized)
+    }
 }
