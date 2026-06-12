@@ -1,30 +1,26 @@
 package com.splittogether.backend.auth.service
 
+import com.splittogether.backend.auth.config.AuthProperties
 import com.splittogether.backend.user.entity.User
 import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.io.Decoders
 import io.jsonwebtoken.security.Keys
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import java.util.Date
 
 @Service
-class JwtService {
-
-    @Value("\${app.jwt.secret}")
-    private lateinit var secret: String
-
-    @Value("\${app.jwt.access-token-expiry}")
-    private var accessTokenExpiry: Long = 0
+class JwtService(
+    private val authProperties: AuthProperties
+) {
 
     fun generateAccessToken(user: User): String {
-        val key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret))
+        val key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(authProperties.jwt.secret))
         return Jwts.builder()
             .subject(user.email)
             .claim("userId", user.id)
             .issuedAt(Date())
-            .expiration(Date(System.currentTimeMillis() + accessTokenExpiry))
+            .expiration(Date(System.currentTimeMillis() + authProperties.jwt.accessTokenExpiry))
             .signWith(key)
             .compact()
     }
@@ -44,7 +40,7 @@ class JwtService {
 
     private fun parseClaims(token: String) =
         Jwts.parser()
-            .verifyWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)))
+            .verifyWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(authProperties.jwt.secret)))
             .build()
             .parseSignedClaims(token)
             .payload

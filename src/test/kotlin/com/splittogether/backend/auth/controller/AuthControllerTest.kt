@@ -3,7 +3,6 @@ package com.splittogether.backend.auth.controller
 import com.splittogether.backend.AbstractIntegrationTest
 import com.splittogether.backend.auth.dto.*
 import com.splittogether.backend.auth.repository.EmailVerificationRepository
-import com.splittogether.backend.auth.repository.RefreshTokenRepository
 import com.splittogether.backend.auth.service.AuthService
 import com.splittogether.backend.user.repository.UserRepository
 import org.junit.jupiter.api.Test
@@ -19,20 +18,12 @@ class AuthControllerTest : AbstractIntegrationTest() {
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var authService: AuthService
     @Autowired private lateinit var userRepository: UserRepository
-    @Autowired private lateinit var refreshTokenRepository: RefreshTokenRepository
     @Autowired private lateinit var emailVerificationRepository: EmailVerificationRepository
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private fun registerAndVerify(email: String = "user@test.com", password: String = "Password1!") {
-        authService.register(RegisterRequest(email, password, "User"))
-        val user = userRepository.findByEmail(email)!!
-        val code = emailVerificationRepository.findLatestUnused(user, "REGISTRATION")!!.code
-        authService.verifyEmail(VerifyEmailRequest(email, code))
-    }
-
-    private fun loginAndGetAccessToken(email: String = "user@test.com", password: String = "Password1!"): String =
-        authService.login(LoginRequest(email, password)).accessToken
+    private fun loginAndGetAccessToken(email: String = "user@test.com"): String =
+        authService.login(LoginRequest(email, generator.defaultPassword)).accessToken
 
     // ── POST /register ────────────────────────────────────────────────────────
 
@@ -74,7 +65,7 @@ class AuthControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `register returns 409 for duplicate email`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        generator.user(email = "user@test.com")
 
         mockMvc.perform(
             post("/api/v1/auth/register")
@@ -87,12 +78,12 @@ class AuthControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `login returns 200 with tokens for valid verified credentials`() {
-        registerAndVerify()
+        generator.user(email = "user@test.com")
 
         mockMvc.perform(
             post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"email":"user@test.com","password":"Password1!"}""")
+                .content("""{"email":"user@test.com","password":"${generator.defaultPassword}"}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.accessToken").exists())
@@ -101,7 +92,7 @@ class AuthControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `login returns 401 for wrong password`() {
-        registerAndVerify()
+        generator.user(email = "user@test.com")
 
         mockMvc.perform(
             post("/api/v1/auth/login")
@@ -112,12 +103,12 @@ class AuthControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `login returns 403 when email is not verified`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        generator.user(email = "user@test.com", emailVerified = false)
 
         mockMvc.perform(
             post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"email":"user@test.com","password":"Password1!"}""")
+                .content("""{"email":"user@test.com","password":"${generator.defaultPassword}"}""")
         ).andExpect(status().isForbidden)
     }
 
@@ -147,12 +138,12 @@ class AuthControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `verify-email returns 400 for wrong code`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        generator.user(email = "user@test.com", emailVerified = false)
 
         mockMvc.perform(
             post("/api/v1/auth/verify-email")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"email":"user@test.com","code":"000000"}""")
+                .content("""{"email":"user@test.com","code":"999999"}""")
         ).andExpect(status().isBadRequest)
     }
 
@@ -160,7 +151,7 @@ class AuthControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `resend-verification returns 200 for unverified user`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        generator.user(email = "user@test.com", emailVerified = false)
 
         mockMvc.perform(
             post("/api/v1/auth/resend-verification")
@@ -171,7 +162,7 @@ class AuthControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `resend-verification returns 409 for already verified user`() {
-        registerAndVerify()
+        generator.user(email = "user@test.com")
 
         mockMvc.perform(
             post("/api/v1/auth/resend-verification")
@@ -184,8 +175,8 @@ class AuthControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `refresh returns 200 with new tokens for valid refresh token`() {
-        registerAndVerify()
-        val tokens = authService.login(LoginRequest("user@test.com", "Password1!"))
+        generator.user(email = "user@test.com")
+        val tokens = authService.login(LoginRequest("user@test.com", generator.defaultPassword))
 
         mockMvc.perform(
             post("/api/v1/auth/refresh")
@@ -210,7 +201,7 @@ class AuthControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `logout returns 204 for authenticated user`() {
-        registerAndVerify()
+        generator.user(email = "user@test.com")
         val accessToken = loginAndGetAccessToken()
 
         mockMvc.perform(

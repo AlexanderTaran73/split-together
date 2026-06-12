@@ -68,23 +68,31 @@ CREATE TABLE currencies (
     name VARCHAR(100) NOT NULL
 );
 
+CREATE TABLE expense_confirmation_statuses (
+    id   SERIAL      PRIMARY KEY,
+    code VARCHAR(50)  NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL
+);
+
 -- =============================================================
 -- Пользователи
 -- =============================================================
 
 CREATE TABLE users (
-    id            BIGSERIAL    PRIMARY KEY,
-    email         VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    display_name  VARCHAR(100) NOT NULL,
-    avatar_url    VARCHAR(512),
-    created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    id                BIGSERIAL    PRIMARY KEY,
+    email             VARCHAR(255) NOT NULL UNIQUE,
+    password_hash     VARCHAR(255) NOT NULL,
+    display_name      VARCHAR(100) NOT NULL,
+    avatar_url        VARCHAR(512),
+    email_verified_at TIMESTAMP WITH TIME ZONE,
+    created_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE user_platform_roles (
-    user_id BIGINT  NOT NULL REFERENCES users(id),
-    role_id INTEGER NOT NULL REFERENCES platform_roles(id),
+    user_id     BIGINT                   NOT NULL REFERENCES users(id),
+    role_id     INTEGER                  NOT NULL REFERENCES platform_roles(id),
+    assigned_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     PRIMARY KEY (user_id, role_id)
 );
 
@@ -120,7 +128,8 @@ CREATE TABLE groups (
     currency_id INTEGER                  NOT NULL REFERENCES currencies(id),
     status_id   INTEGER                  NOT NULL REFERENCES group_statuses(id),
     created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    archived_at TIMESTAMP WITH TIME ZONE
 );
 
 CREATE TABLE group_members (
@@ -137,18 +146,20 @@ CREATE TABLE group_members (
 );
 
 CREATE TABLE group_invitations (
-    id              BIGSERIAL    PRIMARY KEY,
-    group_id        BIGINT                   NOT NULL REFERENCES groups(id),
-    created_by      BIGINT                   NOT NULL REFERENCES users(id),
-    type_id         INTEGER                  NOT NULL REFERENCES invitation_types(id),
-    status_id       INTEGER                  NOT NULL REFERENCES invitation_statuses(id),
-    invited_user_id BIGINT                             REFERENCES users(id),
-    invite_code     VARCHAR(100)             UNIQUE,
-    max_uses        INTEGER,
-    expires_at      TIMESTAMP WITH TIME ZONE,
-    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    revoked_at      TIMESTAMP WITH TIME ZONE
+    id             BIGSERIAL    PRIMARY KEY,
+    group_id       BIGINT                   NOT NULL REFERENCES groups(id),
+    invited_by     BIGINT                   NOT NULL REFERENCES users(id),
+    type_id        INTEGER                  NOT NULL REFERENCES invitation_types(id),
+    status_id      INTEGER                  NOT NULL REFERENCES invitation_statuses(id),
+    target_user_id BIGINT                             REFERENCES users(id),
+    target_email   VARCHAR(255),
+    token          VARCHAR(100)             UNIQUE,
+    max_uses       INTEGER,
+    used_count     INTEGER                  NOT NULL DEFAULT 0,
+    expires_at     TIMESTAMP WITH TIME ZONE,
+    created_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    revoked_at     TIMESTAMP WITH TIME ZONE
 );
 
 CREATE TABLE invitation_uses (
@@ -182,13 +193,15 @@ CREATE TABLE expenses (
 );
 
 CREATE TABLE expense_participants (
-    id         BIGSERIAL     PRIMARY KEY,
-    expense_id BIGINT         NOT NULL REFERENCES expenses(id),
-    user_id    BIGINT         NOT NULL REFERENCES users(id),
-    share      NUMERIC(19, 2) NOT NULL CHECK (share >= 0),
-    weight     NUMERIC(10, 4),
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    id                      BIGSERIAL     PRIMARY KEY,
+    expense_id              BIGINT         NOT NULL REFERENCES expenses(id),
+    user_id                 BIGINT         NOT NULL REFERENCES users(id),
+    share                   NUMERIC(19, 2) NOT NULL CHECK (share >= 0),
+    weight                  NUMERIC(10, 4),
+    confirmation_status_id  INTEGER        NOT NULL REFERENCES expense_confirmation_statuses(id),
+    dispute_reason          VARCHAR(500),
+    created_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     UNIQUE (expense_id, user_id)
 );
 
@@ -205,37 +218,39 @@ CREATE TABLE balances (
 );
 
 CREATE TABLE settlements (
-    id           BIGSERIAL     PRIMARY KEY,
-    group_id     BIGINT         NOT NULL REFERENCES groups(id),
-    payer_id     BIGINT         NOT NULL REFERENCES users(id),
-    receiver_id  BIGINT         NOT NULL REFERENCES users(id),
-    amount       NUMERIC(19, 2) NOT NULL CHECK (amount > 0),
-    currency_id  INTEGER        NOT NULL REFERENCES currencies(id),
-    status_id    INTEGER        NOT NULL REFERENCES settlement_statuses(id),
-    created_by   BIGINT         NOT NULL REFERENCES users(id),
-    created_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    confirmed_at TIMESTAMP WITH TIME ZONE,
-    rejected_at  TIMESTAMP WITH TIME ZONE
+    id               BIGSERIAL     PRIMARY KEY,
+    group_id         BIGINT         NOT NULL REFERENCES groups(id),
+    payer_id         BIGINT         NOT NULL REFERENCES users(id),
+    receiver_id      BIGINT         NOT NULL REFERENCES users(id),
+    amount           NUMERIC(19, 2) NOT NULL CHECK (amount > 0),
+    currency_id      INTEGER        NOT NULL REFERENCES currencies(id),
+    status_id        INTEGER        NOT NULL REFERENCES settlement_statuses(id),
+    created_by       BIGINT         NOT NULL REFERENCES users(id),
+    note             VARCHAR(500),
+    rejection_reason VARCHAR(500),
+    created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    confirmed_at     TIMESTAMP WITH TIME ZONE,
+    rejected_at      TIMESTAMP WITH TIME ZONE
 );
 
 -- =============================================================
 -- Индексы
 -- =============================================================
 
-CREATE INDEX idx_refresh_tokens_user_id       ON refresh_tokens(user_id);
-CREATE INDEX idx_email_verifications_user_id  ON email_verifications(user_id);
-CREATE INDEX idx_group_members_user_id        ON group_members(user_id);
-CREATE INDEX idx_group_members_group_id       ON group_members(group_id);
-CREATE INDEX idx_group_invitations_group_id   ON group_invitations(group_id);
-CREATE INDEX idx_invitation_uses_invitation_id ON invitation_uses(invitation_id);
-CREATE INDEX idx_expenses_group_id            ON expenses(group_id);
-CREATE INDEX idx_expenses_paid_by             ON expenses(paid_by);
-CREATE INDEX idx_expense_participants_expense_id ON expense_participants(expense_id);
-CREATE INDEX idx_expense_participants_user_id ON expense_participants(user_id);
-CREATE INDEX idx_balances_group_id            ON balances(group_id);
-CREATE INDEX idx_balances_debtor_id           ON balances(debtor_id);
-CREATE INDEX idx_balances_creditor_id         ON balances(creditor_id);
-CREATE INDEX idx_settlements_group_id         ON settlements(group_id);
-CREATE INDEX idx_settlements_payer_id         ON settlements(payer_id);
-CREATE INDEX idx_settlements_receiver_id      ON settlements(receiver_id);
+CREATE INDEX idx_refresh_tokens_user_id          ON refresh_tokens(user_id);
+CREATE INDEX idx_email_verifications_user_id      ON email_verifications(user_id);
+CREATE INDEX idx_group_members_user_id            ON group_members(user_id);
+CREATE INDEX idx_group_members_group_id           ON group_members(group_id);
+CREATE INDEX idx_group_invitations_group_id       ON group_invitations(group_id);
+CREATE INDEX idx_invitation_uses_invitation_id    ON invitation_uses(invitation_id);
+CREATE INDEX idx_expenses_group_id                ON expenses(group_id);
+CREATE INDEX idx_expenses_paid_by                 ON expenses(paid_by);
+CREATE INDEX idx_expense_participants_expense_id  ON expense_participants(expense_id);
+CREATE INDEX idx_expense_participants_user_id     ON expense_participants(user_id);
+CREATE INDEX idx_balances_group_id                ON balances(group_id);
+CREATE INDEX idx_balances_debtor_id               ON balances(debtor_id);
+CREATE INDEX idx_balances_creditor_id             ON balances(creditor_id);
+CREATE INDEX idx_settlements_group_id             ON settlements(group_id);
+CREATE INDEX idx_settlements_payer_id             ON settlements(payer_id);
+CREATE INDEX idx_settlements_receiver_id          ON settlements(receiver_id);

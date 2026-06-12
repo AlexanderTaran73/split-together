@@ -37,7 +37,7 @@ class AuthServiceTest : AbstractIntegrationTest() {
 
         val user = userRepository.findByEmail("user@test.com")
         assertNotNull(user)
-        assertFalse(user!!.emailVerified)
+        assertFalse(user!!.emailVerifiedAt != null)
         assertNotNull(emailVerificationRepository.findLatestUnused(user, "REGISTRATION"))
     }
 
@@ -54,17 +54,16 @@ class AuthServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `login throws EmailNotVerifiedException when email is not verified`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        generator.user(email = "user@test.com", emailVerified = false)
 
         assertFailsWith<EmailNotVerifiedException> {
-            authService.login(LoginRequest("user@test.com", "Password1!"))
+            authService.login(LoginRequest("user@test.com", generator.defaultPassword))
         }
     }
 
     @Test
     fun `login throws InvalidCredentialsException for wrong password`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
-        verifyUserEmail("user@test.com")
+        generator.user(email = "user@test.com")
 
         assertFailsWith<InvalidCredentialsException> {
             authService.login(LoginRequest("user@test.com", "WrongPassword"))
@@ -80,10 +79,9 @@ class AuthServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `login returns valid tokens for correct credentials and verified email`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
-        verifyUserEmail("user@test.com")
+        generator.user(email = "user@test.com")
 
-        val response = authService.login(LoginRequest("user@test.com", "Password1!"))
+        val response = authService.login(LoginRequest("user@test.com", generator.defaultPassword))
 
         assertNotNull(response.accessToken)
         assertNotNull(response.refreshToken)
@@ -97,24 +95,23 @@ class AuthServiceTest : AbstractIntegrationTest() {
         authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
         verifyUserEmail("user@test.com")
 
-        assertTrue(userRepository.findByEmail("user@test.com")!!.emailVerified)
+        assertTrue(userRepository.findByEmail("user@test.com")!!.emailVerifiedAt != null)
     }
 
     @Test
     fun `verifyEmail throws InvalidVerificationCodeException for wrong code`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        generator.user(email = "user@test.com", emailVerified = false)
 
         assertFailsWith<InvalidVerificationCodeException> {
-            authService.verifyEmail(VerifyEmailRequest("user@test.com", "000000"))
+            authService.verifyEmail(VerifyEmailRequest("user@test.com", "999999"))
         }
     }
 
     @Test
     fun `verifyEmail throws InvalidVerificationCodeException for expired code`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
-        val user = userRepository.findByEmail("user@test.com")!!
+        val user = generator.user(email = "user@test.com", emailVerified = false)
         val purpose = emailVerificationPurposeRepository.findByCode("REGISTRATION")!!
-        val expired = emailVerificationRepository.save(
+        emailVerificationRepository.save(
             EmailVerification(
                 user = user,
                 code = "999999",
@@ -124,7 +121,7 @@ class AuthServiceTest : AbstractIntegrationTest() {
         )
 
         assertFailsWith<InvalidVerificationCodeException> {
-            authService.verifyEmail(VerifyEmailRequest("user@test.com", expired.code))
+            authService.verifyEmail(VerifyEmailRequest("user@test.com", "999999"))
         }
     }
 
@@ -132,7 +129,7 @@ class AuthServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `resendVerification saves a new verification code for unverified user`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        generator.user(email = "user@test.com", emailVerified = false)
         val countBefore = emailVerificationRepository.count()
 
         authService.resendVerification(ResendVerificationRequest("user@test.com"))
@@ -142,8 +139,7 @@ class AuthServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `resendVerification throws EmailAlreadyVerifiedException when already verified`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
-        verifyUserEmail("user@test.com")
+        generator.user(email = "user@test.com")
 
         assertFailsWith<EmailAlreadyVerifiedException> {
             authService.resendVerification(ResendVerificationRequest("user@test.com"))
@@ -161,9 +157,8 @@ class AuthServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `refresh returns new valid tokens for a valid refresh token`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
-        verifyUserEmail("user@test.com")
-        val tokens = authService.login(LoginRequest("user@test.com", "Password1!"))
+        generator.user(email = "user@test.com")
+        val tokens = authService.login(LoginRequest("user@test.com", generator.defaultPassword))
 
         val newTokens = authService.refresh(RefreshRequest(tokens.refreshToken))
 
@@ -174,9 +169,8 @@ class AuthServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `refresh invalidates the used token so it cannot be reused`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
-        verifyUserEmail("user@test.com")
-        val tokens = authService.login(LoginRequest("user@test.com", "Password1!"))
+        generator.user(email = "user@test.com")
+        val tokens = authService.login(LoginRequest("user@test.com", generator.defaultPassword))
         authService.refresh(RefreshRequest(tokens.refreshToken))
 
         assertFailsWith<InvalidTokenException> {
@@ -193,8 +187,7 @@ class AuthServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `refresh throws InvalidTokenException for expired token`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
-        val user = userRepository.findByEmail("user@test.com")!!
+        val user = generator.user(email = "user@test.com")
         val rawToken = "expired-raw-token"
         refreshTokenRepository.save(
             RefreshToken(
@@ -213,15 +206,78 @@ class AuthServiceTest : AbstractIntegrationTest() {
 
     @Test
     fun `logout revokes all active tokens so refresh no longer works`() {
-        authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
-        verifyUserEmail("user@test.com")
-        val tokens = authService.login(LoginRequest("user@test.com", "Password1!"))
-        val user = userRepository.findByEmail("user@test.com")!!
+        val user = generator.user(email = "user@test.com")
+        val tokens = authService.login(LoginRequest("user@test.com", generator.defaultPassword))
 
         authService.logout(user.id)
 
         assertFailsWith<InvalidTokenException> {
             authService.refresh(RefreshRequest(tokens.refreshToken))
+        }
+    }
+
+    // ── requestEmailChange ────────────────────────────────────────────────────
+
+    @Test
+    fun `requestEmailChange saves EMAIL_CHANGE verification for new email`() {
+        val user = generator.user(email = "user@test.com")
+
+        authService.requestEmailChange(user.id, "new@test.com")
+
+        val verification = emailVerificationRepository.findLatestUnused(user, "EMAIL_CHANGE")
+        assertNotNull(verification)
+        kotlin.test.assertEquals("new@test.com", verification!!.newEmail)
+    }
+
+    @Test
+    fun `requestEmailChange throws EmailAlreadyExistsException when new email is taken`() {
+        val user = generator.user(email = "user@test.com")
+        generator.user(email = "other@test.com")
+
+        assertFailsWith<EmailAlreadyExistsException> {
+            authService.requestEmailChange(user.id, "other@test.com")
+        }
+    }
+
+    // ── confirmEmailChange ────────────────────────────────────────────────────
+
+    @Test
+    fun `confirmEmailChange updates user email to new email`() {
+        val user = generator.user(email = "user@test.com")
+        authService.requestEmailChange(user.id, "new@test.com")
+        val code = emailVerificationRepository.findLatestUnused(user, "EMAIL_CHANGE")!!.code
+
+        authService.confirmEmailChange(user.id, code)
+
+        kotlin.test.assertEquals("new@test.com", userRepository.findById(user.id).get().email)
+    }
+
+    @Test
+    fun `confirmEmailChange throws InvalidVerificationCodeException for wrong code`() {
+        val user = generator.user(email = "user@test.com")
+        authService.requestEmailChange(user.id, "new@test.com")
+
+        assertFailsWith<InvalidVerificationCodeException> {
+            authService.confirmEmailChange(user.id, "999999")
+        }
+    }
+
+    @Test
+    fun `confirmEmailChange throws InvalidVerificationCodeException for expired code`() {
+        val user = generator.user(email = "user@test.com")
+        val purpose = emailVerificationPurposeRepository.findByCode("EMAIL_CHANGE")!!
+        emailVerificationRepository.save(
+            EmailVerification(
+                user = user,
+                code = "111111",
+                purpose = purpose,
+                newEmail = "new@test.com",
+                expiresAt = Instant.now().minus(1, ChronoUnit.HOURS)
+            )
+        )
+
+        assertFailsWith<InvalidVerificationCodeException> {
+            authService.confirmEmailChange(user.id, "111111")
         }
     }
 

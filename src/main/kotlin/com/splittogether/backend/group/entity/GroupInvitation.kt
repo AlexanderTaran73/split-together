@@ -17,8 +17,8 @@ class GroupInvitation(
     val group: Group,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by", nullable = false)
-    val createdBy: User,
+    @JoinColumn(name = "invited_by", nullable = false)
+    val invitedBy: User,
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "type_id", nullable = false)
@@ -29,14 +29,20 @@ class GroupInvitation(
     var status: InvitationStatus,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "invited_user_id")
-    val invitedUser: User? = null,
+    @JoinColumn(name = "target_user_id")
+    val targetUser: User? = null,
 
-    @Column(name = "invite_code", unique = true)
-    val inviteCode: String? = null,
+    @Column(name = "target_email")
+    val targetEmail: String? = null,
+
+    @Column(name = "token", unique = true)
+    val token: String? = null,
 
     @Column(name = "max_uses")
     val maxUses: Int? = null,
+
+    @Column(name = "used_count", nullable = false)
+    var usedCount: Int = 0,
 
     @Column(name = "expires_at")
     val expiresAt: Instant? = null,

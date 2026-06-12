@@ -1,8 +1,11 @@
 package com.splittogether.backend.auth.service
 
+import com.splittogether.backend.auth.config.AuthProperties
 import com.splittogether.backend.auth.dto.*
 import com.splittogether.backend.auth.entity.EmailVerification
 import com.splittogether.backend.auth.entity.RefreshToken
+import com.splittogether.backend.auth.event.EmailChangeRequestedEvent
+import com.splittogether.backend.auth.event.UserRegisteredEvent
 import com.splittogether.backend.auth.repository.EmailVerificationRepository
 import com.splittogether.backend.auth.repository.RefreshTokenRepository
 import com.splittogether.backend.common.entity.EmailVerificationPurpose
@@ -10,9 +13,9 @@ import com.splittogether.backend.common.entity.PlatformRole
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.common.repository.EmailVerificationPurposeRepository
 import com.splittogether.backend.common.repository.PlatformRoleRepository
-import com.splittogether.backend.email.service.EmailService
 import com.splittogether.backend.user.entity.User
 import com.splittogether.backend.user.repository.UserRepository
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -23,13 +26,14 @@ import java.util.*
 
 @Service
 class AuthService(
+    private val authProperties: AuthProperties,
     private val userRepository: UserRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val emailVerificationRepository: EmailVerificationRepository,
     private val platformRoleRepository: PlatformRoleRepository,
     private val emailVerificationPurposeRepository: EmailVerificationPurposeRepository,
     private val jwtService: JwtService,
-    private val emailService: EmailService,
+    private val eventPublisher: ApplicationEventPublisher,
     private val passwordEncoder: PasswordEncoder
 ) {
 
@@ -49,7 +53,8 @@ class AuthService(
         user.platformRoles.add(userRole)
         userRepository.save(user)
 
-        sendVerificationCode(user, EmailVerificationPurpose.REGISTRATION)
+        val code = saveVerificationCode(user, EmailVerificationPurpose.REGISTRATION)
+        eventPublisher.publishEvent(UserRegisteredEvent(user.email, code))
     }
 
     @Transactional
@@ -60,7 +65,7 @@ class AuthService(
         if (!passwordEncoder.matches(request.password, user.passwordHash)) {
             throw InvalidCredentialsException("Invalid email or password")
         }
-        if (!user.emailVerified) {
+        if (user.emailVerifiedAt == null) {
             throw EmailNotVerifiedException("Email not verified")
         }
         return issueTokens(user)
@@ -103,7 +108,35 @@ class AuthService(
             throw InvalidVerificationCodeException("Invalid verification code")
         }
         verification.usedAt = Instant.now()
-        user.emailVerified = true
+        user.emailVerifiedAt = Instant.now()
+    }
+
+    @Transactional
+    fun requestEmailChange(userId: Long, newEmail: String) {
+        val user = userRepository.findById(userId)
+            .orElseThrow { UserNotFoundException("User not found") }
+        if (userRepository.existsByEmail(newEmail))
+            throw EmailAlreadyExistsException("Email already in use")
+
+        val code = saveVerificationCode(user, EmailVerificationPurpose.EMAIL_CHANGE, newEmail)
+        eventPublisher.publishEvent(EmailChangeRequestedEvent(newEmail, code))
+    }
+
+    @Transactional
+    fun confirmEmailChange(userId: Long, code: String) {
+        val user = userRepository.findById(userId)
+            .orElseThrow { UserNotFoundException("User not found") }
+
+        val verification = emailVerificationRepository.findLatestUnused(user, EmailVerificationPurpose.EMAIL_CHANGE)
+            ?: throw InvalidVerificationCodeException("No pending email change found")
+
+        if (verification.expiresAt.isBefore(Instant.now()))
+            throw InvalidVerificationCodeException("Verification code expired")
+        if (verification.code != code)
+            throw InvalidVerificationCodeException("Invalid verification code")
+
+        verification.usedAt = Instant.now()
+        user.email = verification.newEmail!!
     }
 
     @Transactional
@@ -111,10 +144,27 @@ class AuthService(
         val user = userRepository.findByEmail(request.email)
             ?: throw UserNotFoundException("User not found")
 
-        if (user.emailVerified) {
+        if (user.emailVerifiedAt != null) {
             throw EmailAlreadyVerifiedException("Email is already verified")
         }
-        sendVerificationCode(user, EmailVerificationPurpose.REGISTRATION)
+        val code = saveVerificationCode(user, EmailVerificationPurpose.REGISTRATION)
+        eventPublisher.publishEvent(UserRegisteredEvent(user.email, code))
+    }
+
+    private fun saveVerificationCode(user: User, purposeCode: String, newEmail: String? = null): String {
+        val purpose = emailVerificationPurposeRepository.findByCode(purposeCode)
+            ?: error("Reference data missing: purpose $purposeCode")
+        val code = authProperties.verification.fixedCode.ifEmpty { (100000..999999).random().toString() }
+        emailVerificationRepository.save(
+            EmailVerification(
+                user = user,
+                code = code,
+                purpose = purpose,
+                newEmail = newEmail,
+                expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES)
+            )
+        )
+        return code
     }
 
     private fun issueTokens(user: User): AuthResponse {
@@ -128,22 +178,6 @@ class AuthService(
             )
         )
         return AuthResponse(accessToken = accessToken, refreshToken = rawToken)
-    }
-
-    private fun sendVerificationCode(user: User, purposeCode: String) {
-        val purpose = emailVerificationPurposeRepository.findByCode(purposeCode)
-            ?: error("Reference data missing: purpose $purposeCode")
-
-        val code = (100000..999999).random().toString()
-        emailVerificationRepository.save(
-            EmailVerification(
-                user = user,
-                code = code,
-                purpose = purpose,
-                expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES)
-            )
-        )
-        emailService.sendVerificationCode(user.email, code)
     }
 
     private fun hashToken(token: String): String =

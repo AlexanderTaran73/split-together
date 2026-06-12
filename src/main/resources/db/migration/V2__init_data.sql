@@ -54,3 +54,8 @@ INSERT INTO currencies (code, name) VALUES
     ('RUB', 'Российский рубль'),
     ('USD', 'Доллар США'),
     ('EUR', 'Евро');
+
+INSERT INTO expense_confirmation_statuses (code, name) VALUES
+    ('PENDING',   'Ожидает подтверждения'),
+    ('CONFIRMED', 'Подтверждено'),
+    ('DISPUTED',  'Оспорено');

@@ -24,8 +24,8 @@ class User(
     @Column(name = "avatar_url")
     var avatarUrl: String? = null,
 
-    @Column(name = "email_verified", nullable = false)
-    var emailVerified: Boolean = false,
+    @Column(name = "email_verified_at")
+    var emailVerifiedAt: Instant? = null,
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

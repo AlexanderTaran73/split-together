@@ -1,6 +1,15 @@
 spring:
   application:
     name: split-together
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
   datasource:
     url: jdbc:postgresql://localhost:5432/splittogether
     username: postgres
@@ -12,12 +21,16 @@ spring:
     show-sql: false
     open-in-view: false
 
-app:
+email:
+  from: ${MAIL_FROM:noreply@splittogether.com}
+
+auth:
   jwt:
-    # TODO: load secret from environment variable before going to production
-    secret: "tempMTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI"
+    secret: ${JWT_SECRET:tempMTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI}
     access-token-expiry: 900000      # 15 minutes in ms
     refresh-token-expiry-days: 30
+  verification:
+    fixed-code: ""  # set to "000000" for manual testing convenience
 
 management:
   endpoints:
@@ -27,3 +40,6 @@ management:
   endpoint:
     health:
       show-details: never
+  health:
+    mail:
+      enabled: false

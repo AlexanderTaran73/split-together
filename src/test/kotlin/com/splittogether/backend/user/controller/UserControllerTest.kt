@@ -2,11 +2,12 @@ package com.splittogether.backend.user.controller
 
 import com.splittogether.backend.AbstractIntegrationTest
 import com.splittogether.backend.auth.dto.LoginRequest
-import com.splittogether.backend.auth.dto.RegisterRequest
-import com.splittogether.backend.auth.dto.VerifyEmailRequest
-import com.splittogether.backend.auth.repository.EmailVerificationRepository
 import com.splittogether.backend.auth.service.AuthService
-import com.splittogether.backend.user.repository.UserRepository
+import com.splittogether.backend.group.dto.CreateGroupRequest
+import com.splittogether.backend.group.dto.CreateInvitationRequest
+import com.splittogether.backend.group.entity.Group
+import com.splittogether.backend.group.repository.GroupRepository
+import com.splittogether.backend.group.service.GroupService
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
@@ -20,27 +21,25 @@ class UserControllerTest : AbstractIntegrationTest() {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var authService: AuthService
-    @Autowired private lateinit var userRepository: UserRepository
-    @Autowired private lateinit var emailVerificationRepository: EmailVerificationRepository
+    @Autowired private lateinit var groupService: GroupService
+    @Autowired private lateinit var groupRepository: GroupRepository
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private fun registerAndVerify(email: String = "user@test.com", password: String = "Password1!") {
-        authService.register(RegisterRequest(email, password, "User"))
-        val user = userRepository.findByEmail(email)!!
-        val code = emailVerificationRepository.findLatestUnused(user, "REGISTRATION")!!.code
-        authService.verifyEmail(VerifyEmailRequest(email, code))
-    }
+    private fun token(email: String = "user@test.com"): String =
+        authService.login(LoginRequest(email, generator.defaultPassword)).accessToken
 
-    private fun loginAndGetToken(email: String = "user@test.com", password: String = "Password1!"): String =
-        authService.login(LoginRequest(email, password)).accessToken
+    private fun createGroup(userId: Long): Group {
+        groupService.createGroup(userId, CreateGroupRequest("Test Group", null, "RUB"))
+        return groupRepository.findAll().last()
+    }
 
     // ── GET /me ───────────────────────────────────────────────────────────────
 
     @Test
     fun `GET me returns 200 with user profile`() {
-        registerAndVerify()
-        val token = loginAndGetToken()
+        generator.user(email = "user@test.com")
+        val token = token()
 
         mockMvc.perform(
             get("/api/v1/users/me")
@@ -62,8 +61,8 @@ class UserControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `GET search returns 200 with matching users`() {
-        registerAndVerify()
-        val token = loginAndGetToken()
+        generator.user(email = "user@test.com", displayName = "User")
+        val token = token()
 
         mockMvc.perform(
             get("/api/v1/users")
@@ -76,8 +75,8 @@ class UserControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `GET search returns 400 when query is shorter than 2 characters`() {
-        registerAndVerify()
-        val token = loginAndGetToken()
+        generator.user(email = "user@test.com")
+        val token = token()
 
         mockMvc.perform(
             get("/api/v1/users")
@@ -97,8 +96,8 @@ class UserControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `PUT me returns 200 with updated displayName`() {
-        registerAndVerify()
-        val token = loginAndGetToken()
+        generator.user(email = "user@test.com")
+        val token = token()
 
         mockMvc.perform(
             put("/api/v1/users/me")
@@ -112,8 +111,8 @@ class UserControllerTest : AbstractIntegrationTest() {
 
     @Test
     fun `PUT me returns 400 for blank displayName`() {
-        registerAndVerify()
-        val token = loginAndGetToken()
+        generator.user(email = "user@test.com")
+        val token = token()
 
         mockMvc.perform(
             put("/api/v1/users/me")
@@ -130,5 +129,40 @@ class UserControllerTest : AbstractIntegrationTest() {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"displayName":"Name"}""")
         ).andExpect(status().isUnauthorized)
+    }
+
+    // ── GET /me/invitations ───────────────────────────────────────────────────
+
+    @Test
+    fun `GET me invitations returns 200 with pending direct invitations`() {
+        val owner = generator.user(email = "owner@test.com")
+        val invited = generator.user(email = "user@test.com")
+        val group = createGroup(owner.id)
+        groupService.createInvitation(owner.id, group.id, CreateInvitationRequest("DIRECT", invitedUserId = invited.id))
+
+        mockMvc.perform(
+            get("/api/v1/users/me/invitations")
+                .header("Authorization", "Bearer ${token()}")
+        ).andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].groupId").value(group.id))
+            .andExpect(jsonPath("$[0].invitedById").value(owner.id))
+    }
+
+    @Test
+    fun `GET me invitations returns 200 with empty list when no invitations`() {
+        generator.user(email = "user@test.com")
+
+        mockMvc.perform(
+            get("/api/v1/users/me/invitations")
+                .header("Authorization", "Bearer ${token()}")
+        ).andExpect(status().isOk)
+            .andExpect(jsonPath("$").isArray)
+            .andExpect(jsonPath("$").isEmpty)
+    }
+
+    @Test
+    fun `GET me invitations returns 401 without token`() {
+        mockMvc.perform(get("/api/v1/users/me/invitations"))
+            .andExpect(status().isUnauthorized)
     }
 }
