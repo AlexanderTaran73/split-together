@@ -82,6 +82,7 @@ jobs:
              && cd /opt/splittogether \
              && docker compose pull app \
              && docker compose up -d --remove-orphans \
+             && docker compose restart nginx \
              && docker image prune -f"
 
       - name: Health check
