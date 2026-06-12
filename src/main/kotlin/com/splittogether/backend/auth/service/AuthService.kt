@@ -5,6 +5,7 @@ import com.splittogether.backend.auth.dto.*
 import com.splittogether.backend.auth.entity.EmailVerification
 import com.splittogether.backend.auth.entity.RefreshToken
 import com.splittogether.backend.auth.event.EmailChangeRequestedEvent
+import com.splittogether.backend.auth.event.PasswordResetRequestedEvent
 import com.splittogether.backend.auth.event.UserRegisteredEvent
 import com.splittogether.backend.auth.repository.EmailVerificationRepository
 import com.splittogether.backend.auth.repository.RefreshTokenRepository
@@ -13,7 +14,11 @@ import com.splittogether.backend.common.entity.PlatformRole
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.common.repository.EmailVerificationPurposeRepository
 import com.splittogether.backend.common.repository.PlatformRoleRepository
+import com.splittogether.backend.user.entity.GroupInvitePolicy
+import com.splittogether.backend.user.entity.SearchVisibility
 import com.splittogether.backend.user.entity.User
+import com.splittogether.backend.user.repository.GroupInvitePolicyRepository
+import com.splittogether.backend.user.repository.SearchVisibilityRepository
 import com.splittogether.backend.user.repository.UserRepository
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -32,6 +37,8 @@ class AuthService(
     private val emailVerificationRepository: EmailVerificationRepository,
     private val platformRoleRepository: PlatformRoleRepository,
     private val emailVerificationPurposeRepository: EmailVerificationPurposeRepository,
+    private val searchVisibilityRepository: SearchVisibilityRepository,
+    private val groupInvitePolicyRepository: GroupInvitePolicyRepository,
     private val jwtService: JwtService,
     private val eventPublisher: ApplicationEventPublisher,
     private val passwordEncoder: PasswordEncoder
@@ -48,7 +55,11 @@ class AuthService(
         val user = User(
             email = request.email,
             passwordHash = passwordEncoder.encode(request.password)!!,
-            displayName = request.displayName
+            displayName = request.displayName,
+            searchVisibility = searchVisibilityRepository.findByCode(SearchVisibility.EVERYONE)
+                ?: error("Reference data missing: search_visibility=EVERYONE"),
+            groupInvitePolicy = groupInvitePolicyRepository.findByCode(GroupInvitePolicy.ANYONE)
+                ?: error("Reference data missing: group_invite_policy=ANYONE")
         )
         user.platformRoles.add(userRole)
         userRepository.save(user)
@@ -149,6 +160,32 @@ class AuthService(
         }
         val code = saveVerificationCode(user, EmailVerificationPurpose.REGISTRATION)
         eventPublisher.publishEvent(UserRegisteredEvent(user.email, code))
+    }
+
+    @Transactional
+    fun requestPasswordReset(request: PasswordResetRequest) {
+        val user = userRepository.findByEmail(request.email) ?: return
+
+        val code = saveVerificationCode(user, EmailVerificationPurpose.PASSWORD_RESET)
+        eventPublisher.publishEvent(PasswordResetRequestedEvent(user.email, code))
+    }
+
+    @Transactional
+    fun confirmPasswordReset(request: PasswordResetConfirmRequest) {
+        val user = userRepository.findByEmail(request.email)
+            ?: throw InvalidVerificationCodeException("Invalid verification code")
+
+        val verification = emailVerificationRepository.findLatestUnused(user, EmailVerificationPurpose.PASSWORD_RESET)
+            ?: throw InvalidVerificationCodeException("No pending password reset found")
+
+        if (verification.expiresAt.isBefore(Instant.now()))
+            throw InvalidVerificationCodeException("Verification code expired")
+        if (verification.code != request.code)
+            throw InvalidVerificationCodeException("Invalid verification code")
+
+        verification.usedAt = Instant.now()
+        user.passwordHash = passwordEncoder.encode(request.newPassword)!!
+        refreshTokenRepository.revokeAllActiveByUser(user, Instant.now())
     }
 
     private fun saveVerificationCode(user: User, purposeCode: String, newEmail: String? = null): String {

@@ -61,3 +61,33 @@ class SettlementNotFoundException(message: String) :
 
 class InvalidSettlementException(message: String) :
     BaseException(message, HttpStatus.BAD_REQUEST)
+
+class FriendshipNotFoundException(message: String) :
+    BaseException(message, HttpStatus.NOT_FOUND)
+
+class InvalidFriendRequestException(message: String) :
+    BaseException(message, HttpStatus.BAD_REQUEST)
+
+class AlreadyFriendsException(message: String) :
+    BaseException(message, HttpStatus.CONFLICT)
+
+class UserBlockedException(message: String) :
+    BaseException(message, HttpStatus.FORBIDDEN)
+
+class CannotInviteUserException(message: String) :
+    BaseException(message, HttpStatus.FORBIDDEN)
+
+class InvalidPrivacySettingException(message: String) :
+    BaseException(message, HttpStatus.BAD_REQUEST)
+
+class InvalidFileException(message: String) :
+    BaseException(message, HttpStatus.BAD_REQUEST)
+
+class FileTooLargeException(message: String) :
+    BaseException(message, HttpStatus.PAYLOAD_TOO_LARGE)
+
+class UnsupportedFileTypeException(message: String) :
+    BaseException(message, HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+
+class StoredFileNotFoundException(message: String) :
+    BaseException(message, HttpStatus.NOT_FOUND)

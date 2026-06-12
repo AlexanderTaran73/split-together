@@ -15,5 +15,6 @@ class EmailVerificationPurpose(
     companion object {
         const val REGISTRATION = "REGISTRATION"
         const val EMAIL_CHANGE = "EMAIL_CHANGE"
+        const val PASSWORD_RESET = "PASSWORD_RESET"
     }
 }

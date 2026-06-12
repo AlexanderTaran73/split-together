@@ -9,9 +9,9 @@ interface UserRepository : JpaRepository<User, Long> {
     fun existsByEmail(email: String): Boolean
 
     @Query(
-        "SELECT u FROM User u WHERE " +
+        "SELECT u FROM User u WHERE u.id <> :requesterId AND (" +
         "LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-        "LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%'))"
+        "LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%')))"
     )
-    fun search(query: String): List<User>
+    fun search(requesterId: Long, query: String): List<User>
 }

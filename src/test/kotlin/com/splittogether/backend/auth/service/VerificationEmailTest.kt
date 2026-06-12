@@ -1,6 +1,7 @@
 package com.splittogether.backend.auth.service
 
 import com.splittogether.backend.AbstractIntegrationTest
+import com.splittogether.backend.auth.dto.PasswordResetRequest
 import com.splittogether.backend.auth.dto.RegisterRequest
 import com.splittogether.backend.email.service.EmailService
 import org.junit.jupiter.api.Test
@@ -33,6 +34,22 @@ class VerificationEmailTest : AbstractIntegrationTest() {
         val user = generator.user(email = "user@test.com")
         authService.requestEmailChange(user.id, "new@test.com")
         assertEquals("new@test.com", capturingMailSender.last().allRecipients[0].toString())
+    }
+
+    @Test
+    fun `requestPasswordReset sends one email to the user address`() {
+        generator.user(email = "user@test.com")
+        authService.requestPasswordReset(PasswordResetRequest("user@test.com"))
+
+        assertEquals(1, capturingMailSender.messages.size)
+        assertEquals("user@test.com", capturingMailSender.last().allRecipients[0].toString())
+    }
+
+    @Test
+    fun `requestPasswordReset for an unknown email sends nothing`() {
+        authService.requestPasswordReset(PasswordResetRequest("nobody@test.com"))
+
+        assertEquals(0, capturingMailSender.messages.size)
     }
 
     @Test
