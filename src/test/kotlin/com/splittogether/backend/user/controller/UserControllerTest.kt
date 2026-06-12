@@ -62,15 +62,16 @@ class UserControllerTest : AbstractIntegrationTest() {
     @Test
     fun `GET search returns 200 with matching users`() {
         generator.user(email = "user@test.com", displayName = "User")
+        generator.user(email = "target@test.com", displayName = "Target")
         val token = token()
 
         mockMvc.perform(
             get("/api/v1/users")
                 .header("Authorization", "Bearer $token")
-                .param("query", "user")
+                .param("query", "target")
         )
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$[0].email").value("user@test.com"))
+            .andExpect(jsonPath("$[0].email").value("target@test.com"))
     }
 
     @Test
@@ -129,6 +130,54 @@ class UserControllerTest : AbstractIntegrationTest() {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"displayName":"Name"}""")
         ).andExpect(status().isUnauthorized)
+    }
+
+    // ── GET / PUT /me/privacy ─────────────────────────────────────────────────
+
+    @Test
+    fun `GET me privacy returns 200 with default settings`() {
+        generator.user(email = "user@test.com")
+
+        mockMvc.perform(
+            get("/api/v1/users/me/privacy")
+                .header("Authorization", "Bearer ${token()}")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.searchVisibility").value("EVERYONE"))
+            .andExpect(jsonPath("$.groupInvitePolicy").value("ANYONE"))
+    }
+
+    @Test
+    fun `PUT me privacy returns 200 with updated settings`() {
+        generator.user(email = "user@test.com")
+
+        mockMvc.perform(
+            put("/api/v1/users/me/privacy")
+                .header("Authorization", "Bearer ${token()}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"searchVisibility":"NOBODY","groupInvitePolicy":"FRIENDS"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.searchVisibility").value("NOBODY"))
+            .andExpect(jsonPath("$.groupInvitePolicy").value("FRIENDS"))
+    }
+
+    @Test
+    fun `PUT me privacy returns 400 for unknown code`() {
+        generator.user(email = "user@test.com")
+
+        mockMvc.perform(
+            put("/api/v1/users/me/privacy")
+                .header("Authorization", "Bearer ${token()}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"searchVisibility":"BOGUS","groupInvitePolicy":"ANYONE"}""")
+        ).andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `GET me privacy returns 401 without token`() {
+        mockMvc.perform(get("/api/v1/users/me/privacy"))
+            .andExpect(status().isUnauthorized)
     }
 
     // ── GET /me/invitations ───────────────────────────────────────────────────

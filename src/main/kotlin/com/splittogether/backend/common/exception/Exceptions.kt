@@ -61,3 +61,21 @@ class SettlementNotFoundException(message: String) :
 
 class InvalidSettlementException(message: String) :
     BaseException(message, HttpStatus.BAD_REQUEST)
+
+class FriendshipNotFoundException(message: String) :
+    BaseException(message, HttpStatus.NOT_FOUND)
+
+class InvalidFriendRequestException(message: String) :
+    BaseException(message, HttpStatus.BAD_REQUEST)
+
+class AlreadyFriendsException(message: String) :
+    BaseException(message, HttpStatus.CONFLICT)
+
+class UserBlockedException(message: String) :
+    BaseException(message, HttpStatus.FORBIDDEN)
+
+class CannotInviteUserException(message: String) :
+    BaseException(message, HttpStatus.FORBIDDEN)
+
+class InvalidPrivacySettingException(message: String) :
+    BaseException(message, HttpStatus.BAD_REQUEST)

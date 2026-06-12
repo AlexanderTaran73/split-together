@@ -2,6 +2,7 @@ package com.splittogether.backend.group.service
 
 import com.splittogether.backend.AbstractIntegrationTest
 import com.splittogether.backend.common.exception.*
+import com.splittogether.backend.friendship.service.FriendshipService
 import com.splittogether.backend.group.dto.*
 import com.splittogether.backend.group.entity.GroupInvitation
 import com.splittogether.backend.group.repository.*
@@ -18,6 +19,7 @@ class GroupServiceTest : AbstractIntegrationTest() {
     @Autowired private lateinit var groupMemberRepository: GroupMemberRepository
     @Autowired private lateinit var groupInvitationRepository: GroupInvitationRepository
     @Autowired private lateinit var invitationUseRepository: InvitationUseRepository
+    @Autowired private lateinit var friendshipService: FriendshipService
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -363,6 +365,65 @@ class GroupServiceTest : AbstractIntegrationTest() {
         assertEquals("DIRECT", result.type)
         assertEquals(target.id, result.targetUserId)
         assertNotNull(result.token)
+    }
+
+    @Test
+    fun `createInvitation DIRECT is rejected when target accepts invitations only from friends`() {
+        val owner = generator.user()
+        val target = generator.user(email = "target@test.com", groupInvitePolicy = "FRIENDS")
+        val group = createGroup(owner.id)
+
+        assertFailsWith<CannotInviteUserException> {
+            groupService.createInvitation(owner.id, group.id, CreateInvitationRequest("DIRECT", invitedUserId = target.id))
+        }
+    }
+
+    @Test
+    fun `createInvitation DIRECT succeeds when target is a friend with FRIENDS policy`() {
+        val owner = generator.user()
+        val target = generator.user(email = "target@test.com", groupInvitePolicy = "FRIENDS")
+        val group = createGroup(owner.id)
+        val req = friendshipService.sendRequest(owner.id, target.id)
+        friendshipService.acceptRequest(target.id, req.id)
+
+        val result = groupService.createInvitation(
+            owner.id, group.id, CreateInvitationRequest("DIRECT", invitedUserId = target.id)
+        )
+
+        assertEquals(target.id, result.targetUserId)
+    }
+
+    @Test
+    fun `createInvitation DIRECT is rejected when target is invite-only`() {
+        val owner = generator.user()
+        val target = generator.user(email = "target@test.com", groupInvitePolicy = "INVITE_ONLY")
+        val group = createGroup(owner.id)
+
+        assertFailsWith<CannotInviteUserException> {
+            groupService.createInvitation(owner.id, group.id, CreateInvitationRequest("DIRECT", invitedUserId = target.id))
+        }
+    }
+
+    @Test
+    fun `createInvitation DIRECT is rejected when target blocked the inviter`() {
+        val owner = generator.user()
+        val target = generator.user(email = "target@test.com")
+        val group = createGroup(owner.id)
+        friendshipService.block(target.id, owner.id)
+
+        assertFailsWith<CannotInviteUserException> {
+            groupService.createInvitation(owner.id, group.id, CreateInvitationRequest("DIRECT", invitedUserId = target.id))
+        }
+    }
+
+    @Test
+    fun `createInvitation LINK is unaffected by target invite policy`() {
+        val owner = generator.user(groupInvitePolicy = "INVITE_ONLY")
+        val group = createGroup(owner.id)
+
+        val result = groupService.createInvitation(owner.id, group.id, CreateInvitationRequest("LINK"))
+
+        assertEquals("LINK", result.type)
     }
 
     @Test

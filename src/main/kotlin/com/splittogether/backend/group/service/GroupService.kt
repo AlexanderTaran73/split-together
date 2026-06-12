@@ -4,9 +4,11 @@ import com.splittogether.backend.balance.service.BalanceService
 import com.splittogether.backend.expense.service.ExpenseService
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.common.repository.CurrencyRepository
+import com.splittogether.backend.friendship.service.FriendshipService
 import com.splittogether.backend.group.dto.*
 import com.splittogether.backend.group.entity.*
 import com.splittogether.backend.group.repository.*
+import com.splittogether.backend.user.entity.GroupInvitePolicy
 import com.splittogether.backend.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -29,7 +31,8 @@ class GroupService(
     private val invitationStatusRepository: InvitationStatusRepository,
     private val balanceService: BalanceService,
     private val expenseService: ExpenseService,
-    private val membershipGuard: MembershipGuard
+    private val membershipGuard: MembershipGuard,
+    private val friendshipService: FriendshipService
 ) {
 
     private fun groupRole(code: String): GroupRole =
@@ -61,6 +64,19 @@ class GroupService(
     private fun requireActiveGroup(group: Group) {
         if (group.status.code != GroupStatus.ACTIVE)
             throw GroupArchivedException("Group is archived")
+    }
+
+    private fun requireInvitable(inviterId: Long, invitedUser: com.splittogether.backend.user.entity.User) {
+        if (friendshipService.isBlockedBetween(inviterId, invitedUser.id))
+            throw CannotInviteUserException("Cannot invite this user")
+        when (invitedUser.groupInvitePolicy.code) {
+            GroupInvitePolicy.ANYONE -> {}
+            GroupInvitePolicy.FRIENDS ->
+                if (!friendshipService.areFriends(inviterId, invitedUser.id))
+                    throw CannotInviteUserException("This user only accepts invitations from friends")
+            GroupInvitePolicy.INVITE_ONLY ->
+                throw CannotInviteUserException("This user does not accept direct invitations")
+        }
     }
 
     private fun Group.toResponse(userId: Long): GroupResponse = GroupResponse(
@@ -295,6 +311,7 @@ class GroupService(
             val alreadyMember = groupMemberRepository.findByGroupIdAndUserId(groupId, invitedUserId)
                 ?.status?.code == MembershipStatus.ACTIVE
             if (alreadyMember) throw AlreadyGroupMemberException("User is already a member of this group")
+            requireInvitable(userId, invitedUser)
         }
 
         val invitation = groupInvitationRepository.save(

@@ -27,6 +27,14 @@ class User(
     @Column(name = "email_verified_at")
     var emailVerifiedAt: Instant? = null,
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "search_visibility_id", nullable = false)
+    var searchVisibility: SearchVisibility,
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "group_invite_policy_id", nullable = false)
+    var groupInvitePolicy: GroupInvitePolicy,
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "user_platform_roles",

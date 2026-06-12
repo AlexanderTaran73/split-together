@@ -5,6 +5,7 @@ import com.splittogether.backend.auth.repository.RefreshTokenRepository
 import com.splittogether.backend.balance.repository.BalanceRepository
 import com.splittogether.backend.expense.repository.ExpenseParticipantRepository
 import com.splittogether.backend.expense.repository.ExpenseRepository
+import com.splittogether.backend.friendship.repository.FriendshipRepository
 import com.splittogether.backend.group.repository.GroupInvitationRepository
 import com.splittogether.backend.group.repository.GroupMemberRepository
 import com.splittogether.backend.group.repository.GroupRepository
@@ -44,6 +45,7 @@ abstract class AbstractIntegrationTest {
     @Autowired private lateinit var groupRepository: GroupRepository
     @Autowired private lateinit var emailVerificationRepository: EmailVerificationRepository
     @Autowired private lateinit var refreshTokenRepository: RefreshTokenRepository
+    @Autowired private lateinit var friendshipRepository: FriendshipRepository
     @Autowired private lateinit var userRepository: UserRepository
 
     @BeforeEach
@@ -59,6 +61,7 @@ abstract class AbstractIntegrationTest {
         groupRepository.deleteAll()
         emailVerificationRepository.deleteAll()
         refreshTokenRepository.deleteAll()
+        friendshipRepository.deleteAll()
         userRepository.deleteAll()
     }
 }

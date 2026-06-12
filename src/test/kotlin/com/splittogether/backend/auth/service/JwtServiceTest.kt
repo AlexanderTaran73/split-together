@@ -1,6 +1,8 @@
 package com.splittogether.backend.auth.service
 
 import com.splittogether.backend.AbstractIntegrationTest
+import com.splittogether.backend.user.entity.GroupInvitePolicy
+import com.splittogether.backend.user.entity.SearchVisibility
 import com.splittogether.backend.user.entity.User
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.io.Decoders
@@ -21,7 +23,14 @@ class JwtServiceTest : AbstractIntegrationTest() {
 
     private val secret get() = authProperties.jwt.secret
 
-    private val testUser = User(id = 42L, email = "jwt@test.com", passwordHash = "hash", displayName = "JWT Test")
+    private val testUser = User(
+        id = 42L,
+        email = "jwt@test.com",
+        passwordHash = "hash",
+        displayName = "JWT Test",
+        searchVisibility = SearchVisibility(code = SearchVisibility.EVERYONE, name = "EVERYONE"),
+        groupInvitePolicy = GroupInvitePolicy(code = GroupInvitePolicy.ANYONE, name = "ANYONE")
+    )
 
     @Test
     fun `generateAccessToken contains correct email as subject`() {

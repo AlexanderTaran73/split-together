@@ -22,4 +22,16 @@ class DictionaryController(private val dictionaryService: DictionaryService) {
     @GetMapping("/split-methods")
     fun getSplitMethods(): ResponseEntity<List<DictionaryItemResponse>> =
         ResponseEntity.ok(dictionaryService.getSplitMethods())
+
+    @GetMapping("/friendship-statuses")
+    fun getFriendshipStatuses(): ResponseEntity<List<DictionaryItemResponse>> =
+        ResponseEntity.ok(dictionaryService.getFriendshipStatuses())
+
+    @GetMapping("/search-visibilities")
+    fun getSearchVisibilities(): ResponseEntity<List<DictionaryItemResponse>> =
+        ResponseEntity.ok(dictionaryService.getSearchVisibilities())
+
+    @GetMapping("/group-invite-policies")
+    fun getGroupInvitePolicies(): ResponseEntity<List<DictionaryItemResponse>> =
+        ResponseEntity.ok(dictionaryService.getGroupInvitePolicies())
 }
