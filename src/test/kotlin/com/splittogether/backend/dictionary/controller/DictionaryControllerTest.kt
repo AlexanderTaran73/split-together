@@ -97,4 +97,38 @@ class DictionaryControllerTest : AbstractIntegrationTest() {
         mockMvc.perform(get("/api/v1/dictionaries/friendship-statuses"))
             .andExpect(status().isUnauthorized)
     }
+
+    // ── GET /search-visibilities ──────────────────────────────────────────────
+
+    @Test
+    fun `GET search-visibilities returns 200 with all options`() {
+        mockMvc.perform(
+            get("/api/v1/dictionaries/search-visibilities")
+                .header("Authorization", "Bearer ${token()}")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[?(@.code == 'EVERYONE')]").exists())
+            .andExpect(jsonPath("$[?(@.code == 'FRIENDS')]").exists())
+            .andExpect(jsonPath("$[?(@.code == 'NOBODY')]").exists())
+    }
+
+    // ── GET /group-invite-policies ────────────────────────────────────────────
+
+    @Test
+    fun `GET group-invite-policies returns 200 with all options`() {
+        mockMvc.perform(
+            get("/api/v1/dictionaries/group-invite-policies")
+                .header("Authorization", "Bearer ${token()}")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[?(@.code == 'ANYONE')]").exists())
+            .andExpect(jsonPath("$[?(@.code == 'FRIENDS')]").exists())
+            .andExpect(jsonPath("$[?(@.code == 'INVITE_ONLY')]").exists())
+    }
+
+    @Test
+    fun `GET group-invite-policies returns 401 without token`() {
+        mockMvc.perform(get("/api/v1/dictionaries/group-invite-policies"))
+            .andExpect(status().isUnauthorized)
+    }
 }

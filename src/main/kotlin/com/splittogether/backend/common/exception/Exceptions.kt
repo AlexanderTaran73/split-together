@@ -73,3 +73,9 @@ class AlreadyFriendsException(message: String) :
 
 class UserBlockedException(message: String) :
     BaseException(message, HttpStatus.FORBIDDEN)
+
+class CannotInviteUserException(message: String) :
+    BaseException(message, HttpStatus.FORBIDDEN)
+
+class InvalidPrivacySettingException(message: String) :
+    BaseException(message, HttpStatus.BAD_REQUEST)

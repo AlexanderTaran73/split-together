@@ -50,4 +50,20 @@ interface FriendshipRepository : JpaRepository<Friendship, Long> {
             OR (f.requester.id = :b AND f.addressee.id = :a))
     """)
     fun isBlockedBetween(a: Long, b: Long): Boolean
+
+    @Query("""
+        SELECT CASE WHEN f.requester.id = :userId THEN f.addressee.id ELSE f.requester.id END
+        FROM Friendship f
+        WHERE f.status.code = 'ACCEPTED'
+          AND (f.requester.id = :userId OR f.addressee.id = :userId)
+    """)
+    fun findFriendIds(userId: Long): List<Long>
+
+    @Query("""
+        SELECT CASE WHEN f.requester.id = :userId THEN f.addressee.id ELSE f.requester.id END
+        FROM Friendship f
+        WHERE f.status.code = 'BLOCKED'
+          AND (f.requester.id = :userId OR f.addressee.id = :userId)
+    """)
+    fun findBlockedUserIds(userId: Long): List<Long>
 }

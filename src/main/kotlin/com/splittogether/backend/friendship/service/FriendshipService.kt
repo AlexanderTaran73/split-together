@@ -31,6 +31,10 @@ class FriendshipService(
 
     fun isBlockedBetween(a: Long, b: Long): Boolean = friendshipRepository.isBlockedBetween(a, b)
 
+    fun friendIds(userId: Long): List<Long> = friendshipRepository.findFriendIds(userId)
+
+    fun blockedUserIds(userId: Long): List<Long> = friendshipRepository.findBlockedUserIds(userId)
+
     @Transactional
     fun sendRequest(requesterId: Long, addresseeId: Long): FriendRequestResponse {
         if (requesterId == addresseeId)
