@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.multipart.MultipartFile
 
 @RestController
 @RequestMapping("/api/v1/groups")
@@ -45,6 +46,23 @@ class GroupController(private val groupService: GroupService) {
         @PathVariable groupId: Long
     ): ResponseEntity<Void> {
         groupService.archiveGroup(user.userId, groupId)
+        return ResponseEntity.noContent().build()
+    }
+
+    @PutMapping("/{groupId}/avatar", consumes = ["multipart/form-data"])
+    fun updateAvatar(
+        @AuthenticationPrincipal user: AppUserDetails,
+        @PathVariable groupId: Long,
+        @RequestParam("file") file: MultipartFile
+    ): ResponseEntity<GroupResponse> =
+        ResponseEntity.ok(groupService.updateAvatar(user.userId, groupId, file))
+
+    @DeleteMapping("/{groupId}/avatar")
+    fun deleteAvatar(
+        @AuthenticationPrincipal user: AppUserDetails,
+        @PathVariable groupId: Long
+    ): ResponseEntity<Void> {
+        groupService.deleteAvatar(user.userId, groupId)
         return ResponseEntity.noContent().build()
     }
 

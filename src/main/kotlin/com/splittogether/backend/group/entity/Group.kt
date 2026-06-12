@@ -19,6 +19,9 @@ class Group(
     @Column
     var description: String? = null,
 
+    @Column(name = "avatar_object_key")
+    var avatarObjectKey: String? = null,
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     val owner: User,
