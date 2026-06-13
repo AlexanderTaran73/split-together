@@ -8,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.UpdateTimestamp
 import java.math.BigDecimal
 import java.time.Instant
+import java.time.LocalDate
 
 @Entity
 @Table(name = "settlements")
@@ -30,9 +31,15 @@ class Settlement(
     @Column(nullable = false, precision = 19, scale = 2)
     val amount: BigDecimal,
 
+    @Column(name = "base_amount", precision = 19, scale = 2)
+    var baseAmount: BigDecimal? = null,
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "currency_id", nullable = false)
     val currency: Currency,
+
+    @Column(name = "settlement_date", nullable = false)
+    val settlementDate: LocalDate,
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "status_id", nullable = false)

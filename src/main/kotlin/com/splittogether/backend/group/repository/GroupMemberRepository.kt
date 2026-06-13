@@ -16,7 +16,7 @@ interface GroupMemberRepository : JpaRepository<GroupMember, Long> {
     @Query("SELECT m FROM GroupMember m JOIN FETCH m.user WHERE m.group.id = :groupId AND m.status.code = 'ACTIVE'")
     fun findActiveMembersByGroupId(groupId: Long): List<GroupMember>
 
-    @Query("SELECT m FROM GroupMember m JOIN FETCH m.group g JOIN FETCH g.owner JOIN FETCH g.currency WHERE m.user.id = :userId AND m.status.code = 'ACTIVE'")
+    @Query("SELECT m FROM GroupMember m JOIN FETCH m.group g JOIN FETCH g.owner JOIN FETCH g.baseCurrency WHERE m.user.id = :userId AND m.status.code = 'ACTIVE'")
     fun findActiveByUserId(userId: Long): List<GroupMember>
 
     @Query("SELECT COUNT(m) FROM GroupMember m WHERE m.group.id = :groupId AND m.status.code = 'ACTIVE'")

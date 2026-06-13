@@ -1,5 +1,6 @@
 package com.splittogether.backend
 
+import com.splittogether.backend.currency.StubExchangeRateProvider
 import com.splittogether.backend.email.CapturingMailSender
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
@@ -20,6 +21,10 @@ class TestcontainersConfig {
     @Bean
     @Primary
     fun capturingMailSender(): CapturingMailSender = CapturingMailSender()
+
+    @Bean
+    @Primary
+    fun stubExchangeRateProvider(): StubExchangeRateProvider = StubExchangeRateProvider()
 
     // run email tasks synchronously so tests can assert on sent emails immediately
     @Bean("emailExecutor")

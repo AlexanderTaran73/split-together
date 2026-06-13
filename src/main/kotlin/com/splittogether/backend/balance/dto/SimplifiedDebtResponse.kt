@@ -7,5 +7,6 @@ data class SimplifiedDebtResponse(
     val fromName: String,
     val toUserId: Long,
     val toName: String,
-    val amount: BigDecimal
+    val amount: BigDecimal,
+    val currencyCode: String
 )
