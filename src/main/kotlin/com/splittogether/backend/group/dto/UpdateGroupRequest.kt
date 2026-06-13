@@ -9,5 +9,7 @@ data class UpdateGroupRequest(
     val name: String,
 
     @field:Size(max = 500)
-    val description: String? = null
+    val description: String? = null,
+
+    val currencyCode: String? = null
 )

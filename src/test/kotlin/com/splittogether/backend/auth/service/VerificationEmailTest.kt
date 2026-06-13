@@ -20,12 +20,14 @@ class VerificationEmailTest : AbstractIntegrationTest() {
     @Test
     fun `registration sends exactly one email`() {
         authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        drainOutbox()
         assertEquals(1, capturingMailSender.messages.size)
     }
 
     @Test
     fun `registration email is sent to registered address`() {
         authService.register(RegisterRequest("user@test.com", "Password1!", "User"))
+        drainOutbox()
         assertEquals("user@test.com", capturingMailSender.last().allRecipients[0].toString())
     }
 
@@ -33,6 +35,7 @@ class VerificationEmailTest : AbstractIntegrationTest() {
     fun `requestEmailChange sends email to new address`() {
         val user = generator.user(email = "user@test.com")
         authService.requestEmailChange(user.id, "new@test.com")
+        drainOutbox()
         assertEquals("new@test.com", capturingMailSender.last().allRecipients[0].toString())
     }
 
@@ -40,6 +43,7 @@ class VerificationEmailTest : AbstractIntegrationTest() {
     fun `requestPasswordReset sends one email to the user address`() {
         generator.user(email = "user@test.com")
         authService.requestPasswordReset(PasswordResetRequest("user@test.com"))
+        drainOutbox()
 
         assertEquals(1, capturingMailSender.messages.size)
         assertEquals("user@test.com", capturingMailSender.last().allRecipients[0].toString())
@@ -48,6 +52,7 @@ class VerificationEmailTest : AbstractIntegrationTest() {
     @Test
     fun `requestPasswordReset for an unknown email sends nothing`() {
         authService.requestPasswordReset(PasswordResetRequest("nobody@test.com"))
+        drainOutbox()
 
         assertEquals(0, capturingMailSender.messages.size)
     }

@@ -11,6 +11,7 @@ data class ExpenseResponse(
     val description: String?,
     val amount: BigDecimal,
     val currencyCode: String,
+    val baseCurrencyCode: String,
     val categoryCode: String?,
     val splitMethod: String,
     val expenseDate: LocalDate,

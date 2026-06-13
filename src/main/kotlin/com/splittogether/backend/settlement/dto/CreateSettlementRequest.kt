@@ -4,6 +4,7 @@ import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import java.math.BigDecimal
+import java.time.LocalDate
 
 data class CreateSettlementRequest(
     @field:NotNull
@@ -15,6 +16,8 @@ data class CreateSettlementRequest(
 
     @field:NotBlank
     val currencyCode: String,
+
+    val settlementDate: LocalDate? = null,
 
     val note: String? = null
 )

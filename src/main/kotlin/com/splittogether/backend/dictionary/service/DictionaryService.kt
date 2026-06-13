@@ -5,6 +5,7 @@ import com.splittogether.backend.dictionary.dto.DictionaryItemResponse
 import com.splittogether.backend.expense.repository.ExpenseCategoryRepository
 import com.splittogether.backend.expense.repository.SplitMethodRepository
 import com.splittogether.backend.friendship.repository.FriendshipStatusRepository
+import com.splittogether.backend.notification.device.DevicePlatformRepository
 import com.splittogether.backend.user.repository.GroupInvitePolicyRepository
 import com.splittogether.backend.user.repository.SearchVisibilityRepository
 import org.springframework.stereotype.Service
@@ -17,7 +18,8 @@ class DictionaryService(
     private val splitMethodRepository: SplitMethodRepository,
     private val friendshipStatusRepository: FriendshipStatusRepository,
     private val searchVisibilityRepository: SearchVisibilityRepository,
-    private val groupInvitePolicyRepository: GroupInvitePolicyRepository
+    private val groupInvitePolicyRepository: GroupInvitePolicyRepository,
+    private val devicePlatformRepository: DevicePlatformRepository
 ) {
 
     @Transactional(readOnly = true)
@@ -43,4 +45,8 @@ class DictionaryService(
     @Transactional(readOnly = true)
     fun getGroupInvitePolicies(): List<DictionaryItemResponse> =
         groupInvitePolicyRepository.findAll().map { DictionaryItemResponse(it.code, it.name) }
+
+    @Transactional(readOnly = true)
+    fun getDevicePlatforms(): List<DictionaryItemResponse> =
+        devicePlatformRepository.findAll().map { DictionaryItemResponse(it.code, it.name) }
 }

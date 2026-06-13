@@ -15,21 +15,24 @@ class BalanceController(private val balanceService: BalanceService) {
     @GetMapping
     fun getBalances(
         @AuthenticationPrincipal user: AppUserDetails,
-        @PathVariable groupId: Long
+        @PathVariable groupId: Long,
+        @RequestParam(required = false) currency: String?
     ): ResponseEntity<List<BalanceEntryResponse>> =
-        ResponseEntity.ok(balanceService.getBalances(user.userId, groupId))
+        ResponseEntity.ok(balanceService.getBalances(user.userId, groupId, currency))
 
     @GetMapping("/simplified")
     fun getSimplifiedDebts(
         @AuthenticationPrincipal user: AppUserDetails,
-        @PathVariable groupId: Long
+        @PathVariable groupId: Long,
+        @RequestParam(required = false) currency: String?
     ): ResponseEntity<List<SimplifiedDebtResponse>> =
-        ResponseEntity.ok(balanceService.getSimplifiedDebts(user.userId, groupId))
+        ResponseEntity.ok(balanceService.getSimplifiedDebts(user.userId, groupId, currency))
 
     @PostMapping("/simplify")
     fun simplifyBalances(
         @AuthenticationPrincipal user: AppUserDetails,
-        @PathVariable groupId: Long
+        @PathVariable groupId: Long,
+        @RequestParam(required = false) currency: String?
     ): ResponseEntity<List<BalanceEntryResponse>> =
-        ResponseEntity.ok(balanceService.simplifyBalances(user.userId, groupId))
+        ResponseEntity.ok(balanceService.simplifyBalances(user.userId, groupId, currency))
 }

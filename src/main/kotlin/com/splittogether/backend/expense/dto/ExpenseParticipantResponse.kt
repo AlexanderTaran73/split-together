@@ -6,6 +6,7 @@ data class ExpenseParticipantResponse(
     val userId: Long,
     val displayName: String,
     val share: BigDecimal,
+    val baseShare: BigDecimal,
     val weight: BigDecimal?,
     val confirmationStatus: String,
     val disputeReason: String?

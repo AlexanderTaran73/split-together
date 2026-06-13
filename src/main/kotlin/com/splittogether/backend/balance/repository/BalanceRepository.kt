@@ -16,6 +16,9 @@ interface BalanceRepository : JpaRepository<Balance, Long> {
     @Query("SELECT b FROM Balance b JOIN FETCH b.debtor JOIN FETCH b.creditor WHERE b.group.id = :groupId")
     fun findByGroupId(groupId: Long): List<Balance>
 
+    @Query("SELECT b FROM Balance b JOIN FETCH b.group g JOIN FETCH g.baseCurrency WHERE b.creditor.id = :userId OR b.debtor.id = :userId")
+    fun findInvolvingUser(userId: Long): List<Balance>
+
     fun findByGroupIdAndDebtorIdAndCreditorId(groupId: Long, debtorId: Long, creditorId: Long): Balance?
 
     @Query("SELECT b.group.id as groupId, SUM(b.amount) as total FROM Balance b WHERE b.creditor.id = :userId AND b.group.id IN :groupIds GROUP BY b.group.id")

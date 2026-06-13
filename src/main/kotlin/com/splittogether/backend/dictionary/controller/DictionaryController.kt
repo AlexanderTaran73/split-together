@@ -34,4 +34,8 @@ class DictionaryController(private val dictionaryService: DictionaryService) {
     @GetMapping("/group-invite-policies")
     fun getGroupInvitePolicies(): ResponseEntity<List<DictionaryItemResponse>> =
         ResponseEntity.ok(dictionaryService.getGroupInvitePolicies())
+
+    @GetMapping("/device-platforms")
+    fun getDevicePlatforms(): ResponseEntity<List<DictionaryItemResponse>> =
+        ResponseEntity.ok(dictionaryService.getDevicePlatforms())
 }

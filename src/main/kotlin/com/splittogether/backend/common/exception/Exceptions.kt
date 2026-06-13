@@ -91,3 +91,9 @@ class UnsupportedFileTypeException(message: String) :
 
 class StoredFileNotFoundException(message: String) :
     BaseException(message, HttpStatus.NOT_FOUND)
+
+class ExchangeRateUnavailableException(message: String) :
+    BaseException(message, HttpStatus.SERVICE_UNAVAILABLE)
+
+class InvalidDevicePlatformException(message: String) :
+    BaseException(message, HttpStatus.BAD_REQUEST)

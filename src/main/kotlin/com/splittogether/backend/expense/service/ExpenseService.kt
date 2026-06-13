@@ -1,8 +1,10 @@
 package com.splittogether.backend.expense.service
 
 import com.splittogether.backend.balance.service.BalanceService
+import com.splittogether.backend.common.entity.Currency
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.common.repository.CurrencyRepository
+import com.splittogether.backend.currency.service.ExchangeRateService
 import com.splittogether.backend.expense.dto.*
 import com.splittogether.backend.expense.entity.Expense
 import com.splittogether.backend.expense.entity.ExpenseParticipant
@@ -19,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant
+import java.time.LocalDate
 
 @Service
 class ExpenseService(
@@ -31,7 +34,8 @@ class ExpenseService(
     private val membershipGuard: MembershipGuard,
     private val userRepository: UserRepository,
     private val currencyRepository: CurrencyRepository,
-    private val balanceService: BalanceService
+    private val balanceService: BalanceService,
+    private val exchangeRateService: ExchangeRateService
 ) {
 
     @Transactional(readOnly = true)
@@ -56,6 +60,7 @@ class ExpenseService(
         description = description,
         amount = amount,
         currencyCode = currency.code,
+        baseCurrencyCode = group.baseCurrency.code,
         categoryCode = category?.code,
         splitMethod = splitMethod.code,
         expenseDate = expenseDate,
@@ -66,6 +71,7 @@ class ExpenseService(
                 userId = it.user.id,
                 displayName = it.user.displayName,
                 share = it.share,
+                baseShare = it.baseShare,
                 weight = it.weight,
                 confirmationStatus = it.confirmationStatus.code,
                 disputeReason = it.disputeReason
@@ -149,6 +155,7 @@ class ExpenseService(
                     expense = expense,
                     user = participantUsers[i],
                     share = shares[p.userId]!!.share,
+                    baseShare = toBaseShare(shares[p.userId]!!.share, currency, group.baseCurrency, request.expenseDate),
                     weight = shares[p.userId]!!.weight,
                     confirmationStatus = if (participantUsers[i].id == userId) confirmedStatus else pendingStatus
                 )
@@ -157,7 +164,7 @@ class ExpenseService(
 
         savedParticipants.forEach { participant ->
             if (participant.user.id != request.paidByUserId) {
-                balanceService.updateBalance(groupId, participant.user.id, request.paidByUserId, participant.share)
+                balanceService.updateBalance(groupId, participant.user.id, request.paidByUserId, participant.baseShare)
             }
         }
 
@@ -184,7 +191,7 @@ class ExpenseService(
         // Reverse old balance contributions
         oldParticipants.forEach { p ->
             if (p.user.id != oldPaidById) {
-                balanceService.updateBalance(groupId, p.user.id, oldPaidById, p.share.negate())
+                balanceService.updateBalance(groupId, p.user.id, oldPaidById, p.baseShare.negate())
             }
         }
 
@@ -227,6 +234,7 @@ class ExpenseService(
                     expense = expense,
                     user = participantUsers[i],
                     share = shares[p.userId]!!.share,
+                    baseShare = toBaseShare(shares[p.userId]!!.share, currency, group.baseCurrency, request.expenseDate),
                     weight = shares[p.userId]!!.weight,
                     confirmationStatus = if (participantUsers[i].id == userId) confirmedStatus else pendingStatus
                 )
@@ -235,7 +243,7 @@ class ExpenseService(
 
         newParticipants.forEach { participant ->
             if (participant.user.id != request.paidByUserId) {
-                balanceService.updateBalance(groupId, participant.user.id, request.paidByUserId, participant.share)
+                balanceService.updateBalance(groupId, participant.user.id, request.paidByUserId, participant.baseShare)
             }
         }
 
@@ -261,7 +269,7 @@ class ExpenseService(
 
         participants.forEach { p ->
             if (p.user.id != paidById) {
-                balanceService.updateBalance(groupId, p.user.id, paidById, p.share.negate())
+                balanceService.updateBalance(groupId, p.user.id, paidById, p.baseShare.negate())
             }
         }
 
@@ -316,6 +324,9 @@ class ExpenseService(
     }
 
     // ── share calculation ──────────────────────────────────────────────────────
+
+    private fun toBaseShare(share: BigDecimal, currency: Currency, baseCurrency: Currency, date: LocalDate): BigDecimal =
+        exchangeRateService.convert(share, currency, baseCurrency, date)
 
     private data class ShareCalc(val share: BigDecimal, val weight: BigDecimal? = null)
 
