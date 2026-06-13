@@ -6,6 +6,8 @@ import com.splittogether.backend.expense.repository.ExpenseCategoryRepository
 import com.splittogether.backend.expense.repository.SplitMethodRepository
 import com.splittogether.backend.friendship.repository.FriendshipStatusRepository
 import com.splittogether.backend.notification.device.DevicePlatformRepository
+import com.splittogether.backend.notification.preference.NotificationChannelRepository
+import com.splittogether.backend.notification.preference.NotificationTypeRepository
 import com.splittogether.backend.user.repository.GroupInvitePolicyRepository
 import com.splittogether.backend.user.repository.SearchVisibilityRepository
 import org.springframework.stereotype.Service
@@ -19,7 +21,9 @@ class DictionaryService(
     private val friendshipStatusRepository: FriendshipStatusRepository,
     private val searchVisibilityRepository: SearchVisibilityRepository,
     private val groupInvitePolicyRepository: GroupInvitePolicyRepository,
-    private val devicePlatformRepository: DevicePlatformRepository
+    private val devicePlatformRepository: DevicePlatformRepository,
+    private val notificationTypeRepository: NotificationTypeRepository,
+    private val notificationChannelRepository: NotificationChannelRepository
 ) {
 
     @Transactional(readOnly = true)
@@ -49,4 +53,12 @@ class DictionaryService(
     @Transactional(readOnly = true)
     fun getDevicePlatforms(): List<DictionaryItemResponse> =
         devicePlatformRepository.findAll().map { DictionaryItemResponse(it.code, it.name) }
+
+    @Transactional(readOnly = true)
+    fun getNotificationTypes(): List<DictionaryItemResponse> =
+        notificationTypeRepository.findAll().map { DictionaryItemResponse(it.code, it.name) }
+
+    @Transactional(readOnly = true)
+    fun getNotificationChannels(): List<DictionaryItemResponse> =
+        notificationChannelRepository.findAll().map { DictionaryItemResponse(it.code, it.name) }
 }

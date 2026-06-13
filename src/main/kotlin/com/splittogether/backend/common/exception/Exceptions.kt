@@ -97,3 +97,6 @@ class ExchangeRateUnavailableException(message: String) :
 
 class InvalidDevicePlatformException(message: String) :
     BaseException(message, HttpStatus.BAD_REQUEST)
+
+class InvalidNotificationPreferenceException(message: String) :
+    BaseException(message, HttpStatus.BAD_REQUEST)
