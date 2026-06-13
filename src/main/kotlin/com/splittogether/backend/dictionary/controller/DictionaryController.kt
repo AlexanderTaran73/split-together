@@ -38,4 +38,12 @@ class DictionaryController(private val dictionaryService: DictionaryService) {
     @GetMapping("/device-platforms")
     fun getDevicePlatforms(): ResponseEntity<List<DictionaryItemResponse>> =
         ResponseEntity.ok(dictionaryService.getDevicePlatforms())
+
+    @GetMapping("/notification-types")
+    fun getNotificationTypes(): ResponseEntity<List<DictionaryItemResponse>> =
+        ResponseEntity.ok(dictionaryService.getNotificationTypes())
+
+    @GetMapping("/notification-channels")
+    fun getNotificationChannels(): ResponseEntity<List<DictionaryItemResponse>> =
+        ResponseEntity.ok(dictionaryService.getNotificationChannels())
 }

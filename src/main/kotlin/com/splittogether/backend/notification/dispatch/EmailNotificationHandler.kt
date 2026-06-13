@@ -20,4 +20,14 @@ class EmailNotificationHandler(private val emailService: EmailService) {
             variable("code", payload.code)
         }
     }
+
+    fun sendNotification(toEmail: String, title: String, body: String) {
+        emailService.send {
+            to(toEmail)
+            subject("$title — SplitTogether")
+            template("notification")
+            variable("title", title)
+            variable("body", body)
+        }
+    }
 }
