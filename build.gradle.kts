@@ -39,6 +39,7 @@ dependencies {
 	implementation(platform("software.amazon.awssdk:bom:2.46.9"))
 	implementation("software.amazon.awssdk:s3")
 	implementation("software.amazon.awssdk:apache-client")
+	implementation("com.google.firebase:firebase-admin:9.9.0")
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
 	testImplementation("org.testcontainers:junit-jupiter:1.20.6")
 	testImplementation("org.testcontainers:postgresql:1.20.6")
