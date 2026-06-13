@@ -15,6 +15,9 @@ import com.splittogether.backend.group.entity.GroupRole
 import com.splittogether.backend.group.entity.GroupStatus
 import com.splittogether.backend.group.repository.GroupRepository
 import com.splittogether.backend.group.service.MembershipGuard
+import com.splittogether.backend.notification.event.OutboxEventType
+import com.splittogether.backend.notification.event.payload.ExpenseAddedPayload
+import com.splittogether.backend.notification.service.OutboxService
 import com.splittogether.backend.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -35,7 +38,8 @@ class ExpenseService(
     private val userRepository: UserRepository,
     private val currencyRepository: CurrencyRepository,
     private val balanceService: BalanceService,
-    private val exchangeRateService: ExchangeRateService
+    private val exchangeRateService: ExchangeRateService,
+    private val outboxService: OutboxService
 ) {
 
     @Transactional(readOnly = true)
@@ -166,6 +170,22 @@ class ExpenseService(
             if (participant.user.id != request.paidByUserId) {
                 balanceService.updateBalance(groupId, participant.user.id, request.paidByUserId, participant.baseShare)
             }
+        }
+
+        val recipientIds = savedParticipants.map { it.user.id }.filter { it != userId }.distinct()
+        if (recipientIds.isNotEmpty()) {
+            outboxService.append(
+                OutboxEventType.EXPENSE_ADDED,
+                ExpenseAddedPayload(
+                    recipientUserIds = recipientIds,
+                    groupId = group.id,
+                    groupName = group.name,
+                    expenseTitle = expense.title,
+                    amount = request.amount.toPlainString(),
+                    currencyCode = currency.code,
+                    actorName = creator.displayName
+                )
+            )
         }
 
         return expense.toResponse(savedParticipants)

@@ -7,6 +7,10 @@ import com.splittogether.backend.currency.service.ExchangeRateService
 import com.splittogether.backend.group.entity.GroupStatus
 import com.splittogether.backend.group.repository.GroupRepository
 import com.splittogether.backend.group.service.MembershipGuard
+import com.splittogether.backend.notification.event.OutboxEventType
+import com.splittogether.backend.notification.event.payload.SettlementConfirmedPayload
+import com.splittogether.backend.notification.event.payload.SettlementRequestedPayload
+import com.splittogether.backend.notification.service.OutboxService
 import com.splittogether.backend.settlement.dto.CreateSettlementRequest
 import com.splittogether.backend.settlement.dto.SettlementResponse
 import com.splittogether.backend.settlement.entity.Settlement
@@ -29,7 +33,8 @@ class SettlementService(
     private val userRepository: UserRepository,
     private val currencyRepository: CurrencyRepository,
     private val balanceService: BalanceService,
-    private val exchangeRateService: ExchangeRateService
+    private val exchangeRateService: ExchangeRateService,
+    private val outboxService: OutboxService
 ) {
 
     private fun requireActiveMember(groupId: Long, userId: Long) =
@@ -88,6 +93,18 @@ class SettlementService(
             )
         )
 
+        outboxService.append(
+            OutboxEventType.SETTLEMENT_REQUESTED,
+            SettlementRequestedPayload(
+                recipientUserId = request.receiverId,
+                groupId = group.id,
+                groupName = group.name,
+                payerName = payer.displayName,
+                amount = request.amount.toPlainString(),
+                currencyCode = currency.code
+            )
+        )
+
         return settlement.toResponse()
     }
 
@@ -111,6 +128,18 @@ class SettlementService(
         settlementRepository.save(settlement)
 
         balanceService.updateBalance(groupId, settlement.payer.id, settlement.receiver.id, settlement.baseAmount!!.negate())
+
+        outboxService.append(
+            OutboxEventType.SETTLEMENT_CONFIRMED,
+            SettlementConfirmedPayload(
+                recipientUserId = settlement.payer.id,
+                groupId = settlement.group.id,
+                groupName = settlement.group.name,
+                receiverName = settlement.receiver.displayName,
+                amount = settlement.amount.toPlainString(),
+                currencyCode = settlement.currency.code
+            )
+        )
 
         return settlement.toResponse()
     }
