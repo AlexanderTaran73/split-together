@@ -38,8 +38,11 @@ class UserController(private val userService: UserService) {
         ResponseEntity.ok(userService.getMyGroups(user.userId))
 
     @GetMapping("/me/balance")
-    fun getMyBalance(@AuthenticationPrincipal user: AppUserDetails): ResponseEntity<UserBalanceResponse> =
-        ResponseEntity.ok(userService.getMyBalance(user.userId))
+    fun getMyBalance(
+        @AuthenticationPrincipal user: AppUserDetails,
+        @RequestParam(required = false) currency: String?
+    ): ResponseEntity<UserBalanceResponse> =
+        ResponseEntity.ok(userService.getMyBalance(user.userId, currency))
 
     @GetMapping("/me/invitations")
     fun getMyInvitations(@AuthenticationPrincipal user: AppUserDetails): ResponseEntity<List<IncomingInvitationResponse>> =

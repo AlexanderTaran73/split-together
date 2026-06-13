@@ -103,8 +103,8 @@ class UserService(
         groupService.getMyGroups(userId)
 
     @Transactional(readOnly = true)
-    fun getMyBalance(userId: Long): UserBalanceResponse =
-        balanceService.getUserBalance(userId)
+    fun getMyBalance(userId: Long, displayCurrencyCode: String? = null): UserBalanceResponse =
+        balanceService.getUserBalance(userId, displayCurrencyCode)
 
     @Transactional(readOnly = true)
     fun getMyInvitations(userId: Long): List<IncomingInvitationResponse> =

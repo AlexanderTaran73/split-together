@@ -3,6 +3,7 @@ package com.splittogether.backend.settlement.service
 import com.splittogether.backend.balance.service.BalanceService
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.common.repository.CurrencyRepository
+import com.splittogether.backend.currency.service.ExchangeRateService
 import com.splittogether.backend.group.entity.GroupStatus
 import com.splittogether.backend.group.repository.GroupRepository
 import com.splittogether.backend.group.service.MembershipGuard
@@ -16,6 +17,8 @@ import com.splittogether.backend.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 @Service
 class SettlementService(
@@ -25,7 +28,8 @@ class SettlementService(
     private val membershipGuard: MembershipGuard,
     private val userRepository: UserRepository,
     private val currencyRepository: CurrencyRepository,
-    private val balanceService: BalanceService
+    private val balanceService: BalanceService,
+    private val exchangeRateService: ExchangeRateService
 ) {
 
     private fun requireActiveMember(groupId: Long, userId: Long) =
@@ -40,6 +44,9 @@ class SettlementService(
         receiverName = receiver.displayName,
         amount = amount,
         currencyCode = currency.code,
+        baseAmount = baseAmount,
+        baseCurrencyCode = group.baseCurrency.code,
+        settlementDate = settlementDate,
         status = status.code,
         note = note,
         rejectionReason = rejectionReason,
@@ -74,6 +81,7 @@ class SettlementService(
                 receiver = receiver,
                 amount = request.amount,
                 currency = currency,
+                settlementDate = request.settlementDate ?: LocalDate.now(ZoneOffset.UTC),
                 status = status,
                 createdBy = payer,
                 note = request.note
@@ -97,9 +105,12 @@ class SettlementService(
         settlement.status = settlementStatusRepository.findByCode(SettlementStatus.CONFIRMED)
             ?: error("Missing reference data: settlement_status=${SettlementStatus.CONFIRMED}")
         settlement.confirmedAt = Instant.now()
+        settlement.baseAmount = exchangeRateService.convert(
+            settlement.amount, settlement.currency, settlement.group.baseCurrency, settlement.settlementDate
+        )
         settlementRepository.save(settlement)
 
-        balanceService.updateBalance(groupId, settlement.payer.id, settlement.receiver.id, settlement.amount.negate())
+        balanceService.updateBalance(groupId, settlement.payer.id, settlement.receiver.id, settlement.baseAmount!!.negate())
 
         return settlement.toResponse()
     }

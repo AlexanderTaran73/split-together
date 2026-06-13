@@ -27,8 +27,8 @@ class Group(
     val owner: User,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "currency_id", nullable = false)
-    val currency: Currency,
+    @JoinColumn(name = "base_currency_id", nullable = false)
+    var baseCurrency: Currency,
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "status_id", nullable = false)

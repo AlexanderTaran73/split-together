@@ -7,5 +7,6 @@ data class BalanceEntryResponse(
     val debtorName: String,
     val creditorId: Long,
     val creditorName: String,
-    val amount: BigDecimal
+    val amount: BigDecimal,
+    val currencyCode: String
 )

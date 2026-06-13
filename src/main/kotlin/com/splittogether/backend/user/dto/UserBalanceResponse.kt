@@ -5,5 +5,6 @@ import java.math.BigDecimal
 data class UserBalanceResponse(
     val totalOwed: BigDecimal,
     val totalOwing: BigDecimal,
-    val netBalance: BigDecimal
+    val netBalance: BigDecimal,
+    val currencyCode: String
 )

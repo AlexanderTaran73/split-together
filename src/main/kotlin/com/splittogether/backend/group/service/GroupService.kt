@@ -92,7 +92,7 @@ class GroupService(
         name = name,
         description = description,
         avatarUrl = avatarUrlResolver.resolve(avatarObjectKey),
-        currencyCode = currency.code,
+        currencyCode = baseCurrency.code,
         status = status.code,
         ownerId = owner.id,
         ownerDisplayName = owner.displayName,
@@ -138,7 +138,7 @@ class GroupService(
                 name = request.name,
                 description = request.description,
                 owner = owner,
-                currency = currency,
+                baseCurrency = currency,
                 status = groupStatus(GroupStatus.ACTIVE)
             )
         )
@@ -181,7 +181,7 @@ class GroupService(
                 name = group.name,
                 description = group.description,
                 avatarUrl = avatarUrlResolver.resolve(group.avatarObjectKey),
-                currencyCode = group.currency.code,
+                currencyCode = group.baseCurrency.code,
                 status = group.status.code,
                 ownerId = group.owner.id,
                 ownerDisplayName = group.owner.displayName,
@@ -205,7 +205,18 @@ class GroupService(
 
         group.name = request.name
         group.description = request.description
-        return groupRepository.save(group).toResponse(userId)
+
+        if (request.currencyCode != null && request.currencyCode != group.baseCurrency.code) {
+            val currency = currencyRepository.findByCode(request.currencyCode)
+                ?: throw CurrencyNotFoundException("Currency not found: ${request.currencyCode}")
+            group.baseCurrency = currency
+            groupRepository.save(group)
+            balanceService.rebuildGroupBalances(groupId)
+        } else {
+            groupRepository.save(group)
+        }
+
+        return group.toResponse(userId)
     }
 
     @Transactional
@@ -434,7 +445,7 @@ class GroupService(
                 id = it.id,
                 groupId = it.group.id,
                 groupName = it.group.name,
-                groupCurrencyCode = it.group.currency.code,
+                groupCurrencyCode = it.group.baseCurrency.code,
                 invitedById = it.invitedBy.id,
                 invitedByDisplayName = it.invitedBy.displayName,
                 expiresAt = it.expiresAt,
