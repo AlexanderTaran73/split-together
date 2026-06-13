@@ -8,6 +8,9 @@ import com.splittogether.backend.friendship.service.FriendshipService
 import com.splittogether.backend.group.dto.*
 import com.splittogether.backend.group.entity.*
 import com.splittogether.backend.group.repository.*
+import com.splittogether.backend.notification.event.OutboxEventType
+import com.splittogether.backend.notification.event.payload.GroupInvitationPayload
+import com.splittogether.backend.notification.service.OutboxService
 import com.splittogether.backend.storage.FileConstraints
 import com.splittogether.backend.storage.service.AvatarUrlResolver
 import com.splittogether.backend.storage.service.FileValidator
@@ -40,7 +43,8 @@ class GroupService(
     private val friendshipService: FriendshipService,
     private val storageService: StorageService,
     private val fileValidator: FileValidator,
-    private val avatarUrlResolver: AvatarUrlResolver
+    private val avatarUrlResolver: AvatarUrlResolver,
+    private val outboxService: OutboxService
 ) {
 
     private fun groupRole(code: String): GroupRole =
@@ -373,8 +377,12 @@ class GroupService(
             )
         )
 
-        // TODO: для DIRECT-приглашений нужно уведомить targetUser (push или email)
-        //  чтобы он узнал о приглашении и мог принять его через /join
+        if (typeCode == InvitationType.DIRECT) {
+            outboxService.append(
+                OutboxEventType.GROUP_INVITATION_RECEIVED,
+                GroupInvitationPayload(invitedUser!!.id, group.id, group.name, creator.displayName)
+            )
+        }
 
         return invitation.toResponse()
     }

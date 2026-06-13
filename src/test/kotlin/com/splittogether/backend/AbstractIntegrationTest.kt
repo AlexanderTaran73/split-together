@@ -13,6 +13,10 @@ import com.splittogether.backend.group.repository.GroupInvitationRepository
 import com.splittogether.backend.group.repository.GroupMemberRepository
 import com.splittogether.backend.group.repository.GroupRepository
 import com.splittogether.backend.group.repository.InvitationUseRepository
+import com.splittogether.backend.notification.CapturingPushSender
+import com.splittogether.backend.notification.device.DeviceTokenRepository
+import com.splittogether.backend.notification.repository.OutboxEventRepository
+import com.splittogether.backend.notification.service.OutboxProcessor
 import com.splittogether.backend.settlement.repository.SettlementRepository
 import com.splittogether.backend.user.repository.UserRepository
 import com.splittogether.backend.email.CapturingMailSender
@@ -57,6 +61,11 @@ abstract class AbstractIntegrationTest {
     @Autowired protected lateinit var capturingMailSender: CapturingMailSender
     @Autowired protected lateinit var stubExchangeRateProvider: StubExchangeRateProvider
 
+    @Autowired protected lateinit var outboxProcessor: OutboxProcessor
+    @Autowired protected lateinit var capturingPushSender: CapturingPushSender
+
+    @Autowired private lateinit var deviceTokenRepository: DeviceTokenRepository
+    @Autowired private lateinit var outboxEventRepository: OutboxEventRepository
     @Autowired private lateinit var exchangeRateRepository: ExchangeRateRepository
     @Autowired private lateinit var storedFileRepository: StoredFileRepository
     @Autowired private lateinit var invitationUseRepository: InvitationUseRepository
@@ -72,10 +81,15 @@ abstract class AbstractIntegrationTest {
     @Autowired private lateinit var friendshipRepository: FriendshipRepository
     @Autowired private lateinit var userRepository: UserRepository
 
+    protected fun drainOutbox() = outboxProcessor.processBatch()
+
     @BeforeEach
     fun cleanDatabase() {
         capturingMailSender.clear()
+        capturingPushSender.clear()
         stubExchangeRateProvider.reset()
+        deviceTokenRepository.deleteAll()
+        outboxEventRepository.deleteAll()
         exchangeRateRepository.deleteAll()
         storedFileRepository.deleteAll()
         invitationUseRepository.deleteAll()

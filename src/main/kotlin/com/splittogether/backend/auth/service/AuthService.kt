@@ -4,9 +4,6 @@ import com.splittogether.backend.auth.config.AuthProperties
 import com.splittogether.backend.auth.dto.*
 import com.splittogether.backend.auth.entity.EmailVerification
 import com.splittogether.backend.auth.entity.RefreshToken
-import com.splittogether.backend.auth.event.EmailChangeRequestedEvent
-import com.splittogether.backend.auth.event.PasswordResetRequestedEvent
-import com.splittogether.backend.auth.event.UserRegisteredEvent
 import com.splittogether.backend.auth.repository.EmailVerificationRepository
 import com.splittogether.backend.auth.repository.RefreshTokenRepository
 import com.splittogether.backend.common.entity.EmailVerificationPurpose
@@ -14,13 +11,15 @@ import com.splittogether.backend.common.entity.PlatformRole
 import com.splittogether.backend.common.exception.*
 import com.splittogether.backend.common.repository.EmailVerificationPurposeRepository
 import com.splittogether.backend.common.repository.PlatformRoleRepository
+import com.splittogether.backend.notification.event.OutboxEventType
+import com.splittogether.backend.notification.event.payload.VerificationCodePayload
+import com.splittogether.backend.notification.service.OutboxService
 import com.splittogether.backend.user.entity.GroupInvitePolicy
 import com.splittogether.backend.user.entity.SearchVisibility
 import com.splittogether.backend.user.entity.User
 import com.splittogether.backend.user.repository.GroupInvitePolicyRepository
 import com.splittogether.backend.user.repository.SearchVisibilityRepository
 import com.splittogether.backend.user.repository.UserRepository
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -40,7 +39,7 @@ class AuthService(
     private val searchVisibilityRepository: SearchVisibilityRepository,
     private val groupInvitePolicyRepository: GroupInvitePolicyRepository,
     private val jwtService: JwtService,
-    private val eventPublisher: ApplicationEventPublisher,
+    private val outboxService: OutboxService,
     private val passwordEncoder: PasswordEncoder
 ) {
 
@@ -65,7 +64,7 @@ class AuthService(
         userRepository.save(user)
 
         val code = saveVerificationCode(user, EmailVerificationPurpose.REGISTRATION)
-        eventPublisher.publishEvent(UserRegisteredEvent(user.email, code))
+        outboxService.append(OutboxEventType.REGISTRATION_CODE, VerificationCodePayload(user.email, code))
     }
 
     @Transactional
@@ -130,7 +129,7 @@ class AuthService(
             throw EmailAlreadyExistsException("Email already in use")
 
         val code = saveVerificationCode(user, EmailVerificationPurpose.EMAIL_CHANGE, newEmail)
-        eventPublisher.publishEvent(EmailChangeRequestedEvent(newEmail, code))
+        outboxService.append(OutboxEventType.EMAIL_CHANGE_CODE, VerificationCodePayload(newEmail, code))
     }
 
     @Transactional
@@ -159,7 +158,7 @@ class AuthService(
             throw EmailAlreadyVerifiedException("Email is already verified")
         }
         val code = saveVerificationCode(user, EmailVerificationPurpose.REGISTRATION)
-        eventPublisher.publishEvent(UserRegisteredEvent(user.email, code))
+        outboxService.append(OutboxEventType.REGISTRATION_CODE, VerificationCodePayload(user.email, code))
     }
 
     @Transactional
@@ -167,7 +166,7 @@ class AuthService(
         val user = userRepository.findByEmail(request.email) ?: return
 
         val code = saveVerificationCode(user, EmailVerificationPurpose.PASSWORD_RESET)
-        eventPublisher.publishEvent(PasswordResetRequestedEvent(user.email, code))
+        outboxService.append(OutboxEventType.PASSWORD_RESET_CODE, VerificationCodePayload(user.email, code))
     }
 
     @Transactional

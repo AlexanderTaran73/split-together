@@ -41,6 +41,18 @@ currency:
 email:
   from: ${MAIL_FROM:noreply@splittogether.com}
 
+notification:
+  outbox:
+    poll-delay: 1000        # @Scheduled fixedDelay in ms
+    batch-size: 50
+    max-attempts: 10
+    scheduler-enabled: true
+
+push:
+  enabled: ${PUSH_ENABLED:false}
+  # path to the FCM service-account JSON; if blank, falls back to GOOGLE_APPLICATION_CREDENTIALS
+  credentials-path: ${FCM_CREDENTIALS_PATH:}
+
 auth:
   jwt:
     secret: ${JWT_SECRET:tempMTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI}

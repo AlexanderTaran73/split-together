@@ -46,7 +46,14 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET: ${MINIO_BUCKET}
+      PUSH_ENABLED: ${PUSH_ENABLED:-false}
+      FCM_CREDENTIALS_PATH: ${FCM_CREDENTIALS_PATH:-/run/secrets/fcm-service-account.json}
       SERVER_FORWARD_HEADERS_STRATEGY: framework
+    volumes:
+      # FCM service-account JSON (read-only), must exist on the server before deploy.
+      # Lives only on the server, never in the image or repo. Path inside the container
+      # must match FCM_CREDENTIALS_PATH. Push stays off at runtime if the file is absent.
+      - ./fcm-service-account.json:/run/secrets/fcm-service-account.json:ro
     restart: unless-stopped
 
   nginx:
